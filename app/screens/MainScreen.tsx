@@ -12,7 +12,7 @@ interface UserData {
   created_at?: string;
 }
 
-export default function ForumScreen() {
+export default function MainScreen() {
   const params = useLocalSearchParams();
   const [userData, setUserData] = useState<UserData | null>(null);
 
@@ -67,7 +67,7 @@ export default function ForumScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
-        <Text style={styles.title}>Recipe Forum</Text>
+        <Text style={styles.title}>Home</Text>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
@@ -112,17 +112,21 @@ export default function ForumScreen() {
           )}
         </View>
       </View>
-
       <View style={styles.forumSection}>
         <Text style={styles.sectionTitle}>Forum Features</Text>
-        <Text style={styles.comingSoon}>Recipe sharing and forum features coming soon!</Text>
-        
-        <View style={styles.featuresList}>
-          <Text style={styles.featureItem}>• Share your favorite recipes</Text>
-          <Text style={styles.featureItem}>• Rate and review recipes</Text>
-          <Text style={styles.featureItem}>• Join cooking discussions</Text>
-          <Text style={styles.featureItem}>• Earn points for contributions</Text>
-          <Text style={styles.featureItem}>• Follow other chefs</Text>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity 
+            style={styles.button} 
+            onPress={() => router.push('./RecipesForumScreen')}
+          >
+            <Text style={styles.buttonText}>Recipes Forum</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.button} 
+            onPress={() => router.push('./RecipesListScreen')}
+          >
+            <Text style={styles.buttonText}>Recipes List</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </ScrollView>
@@ -216,7 +220,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   pointsValue: {
-    color: '#007AFF',
+    color: '#28a745',
     fontSize: 18,
   },
   forumSection: {
@@ -259,5 +263,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginTop: 50,
+  },
+
+  buttonRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-around',
+  marginVertical: 10,
+  },
+  button: {
+    backgroundColor: '#ff8c00',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

@@ -42,9 +42,9 @@ export default function LoginScreen() {
       });
 
       if (response.data.success) {
-        // Store user data and navigate to forum
+        // Store user data and navigate to main screen
         router.push({
-          pathname: './ForumScreen',
+          pathname: './MainScreen',
           params: { userData: JSON.stringify(response.data.user) }
         });
       } else {
