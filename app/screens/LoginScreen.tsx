@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 
 const API_URL = `${API_BASE_URL}/api/auth`;
@@ -68,52 +68,54 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
-      
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      
-      <TextInput
-        style={[styles.input, error && username === '' ? styles.inputError : null]}
-        placeholder="Username"
-        value={username}
-        onChangeText={(text) => {
-          setUsername(text);
-          if (error && text.trim()) setError('');
-        }}
-        placeholderTextColor="#aaa"
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-      
-      <TextInput
-        style={[styles.input, error && password === '' ? styles.inputError : null]}
-        placeholder="Password"
-        value={password}
-        onChangeText={(text) => {
-          setPassword(text);
-          if (error && text.trim()) setError('');
-        }}
-        placeholderTextColor="#aaa"
-        secureTextEntry
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-      
-      <TouchableOpacity 
-        style={[styles.button, isLoading && styles.buttonDisabled]} 
-        onPress={handleLogin}
-        disabled={isLoading}
-      >
-        <Text style={styles.buttonText}>
-          {isLoading ? 'Logging in...' : 'Login'}
-        </Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.linkButton} onPress={navigateToSignup}>
-        <Text style={styles.linkText}>Don't have an account? Sign up</Text>
-      </TouchableOpacity>
-    </View>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Login</Text>
+        
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        
+        <TextInput
+          style={[styles.input, error && username === '' ? styles.inputError : null]}
+          placeholder="Username"
+          value={username}
+          onChangeText={(text) => {
+            setUsername(text);
+            if (error && text.trim()) setError('');
+          }}
+          placeholderTextColor="#aaa"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        
+        <TextInput
+          style={[styles.input, error && password === '' ? styles.inputError : null]}
+          placeholder="Password"
+          value={password}
+          onChangeText={(text) => {
+            setPassword(text);
+            if (error && text.trim()) setError('');
+          }}
+          placeholderTextColor="#aaa"
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        
+        <TouchableOpacity 
+          style={[styles.button, isLoading && styles.buttonDisabled]} 
+          onPress={handleLogin}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>
+            {isLoading ? 'Logging in...' : 'Login'}
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.linkButton} onPress={navigateToSignup}>
+          <Text style={styles.linkText}>Don't have an account? Sign up</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 

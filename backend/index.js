@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { Pool } = require('pg');
+const { sendWelcomeEmail } = require('./emailService');
 
 const app = express();
 app.use(cors());
@@ -68,10 +69,23 @@ app.post('/api/auth/signup', async (req, res) => {
       [username, email, hashedPassword, dateOfBirth, phone, points]
     );
     
+    const newUser = result.rows[0];
+    
+    // Send welcome email (don't wait for it to complete)
+    sendWelcomeEmail(email, username).then(emailResult => {
+      if (emailResult.success) {
+        console.log(`Welcome email sent to ${email}`);
+      } else {
+        console.error(`Failed to send welcome email to ${email}:`, emailResult.error);
+      }
+    }).catch(error => {
+      console.error('Error in email sending process:', error);
+    });
+    
     res.status(201).json({
       success: true,
       message: 'User created successfully',
-      user: result.rows[0]
+      user: newUser
     });
   } catch (err) {
     console.error('Signup error:', err);
@@ -148,7 +162,7 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// Route to create a new user (legacy - kept for compatibility)
+// Route to create a new user
 app.post('/api/users', async (req, res) => {
   const { username, email } = req.body;
   try {
