@@ -2,7 +2,7 @@ import axios from 'axios';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { API_BASE_URL } from '../config/apiConfig';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 const API_URL = `${API_BASE_URL}/api/auth`;
 
