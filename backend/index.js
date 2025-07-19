@@ -4,6 +4,7 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { Pool } = require('pg');
 const { sendWelcomeEmail } = require('./emailService');
+const { generateApiConfig } = require('../scripts/generateApiConfig');
 
 const app = express();
 app.use(cors());
@@ -158,6 +159,11 @@ app.get('/api/debug-db', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
+
+// Auto-generate API configuration on server startup
+console.log('Auto-generating API configuration...');
+generateApiConfig();
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

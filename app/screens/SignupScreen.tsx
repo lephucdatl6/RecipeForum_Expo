@@ -17,18 +17,16 @@ export default function SignupScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const formatDateInput = (text: string, previousText: string = '') => {
-    // Remove all non-numeric characters
+    // Remove all nonnumeric characters
     const numbers = text.replace(/\D/g, '');
     
     // If user is deleting (current length < previous length), handle it properly
     if (text.length < previousText.length) {
-      // If the user deleted a dash, remove the number before it too
       if (previousText.endsWith('-') && !text.endsWith('-')) {
         const numbersFromPrev = previousText.replace(/\D/g, '');
         const newNumbers = numbersFromPrev.slice(0, -1);
         return formatDateInput(newNumbers);
       }
-      // Otherwise just format the remaining numbers
       return formatDateString(numbers);
     }
     
@@ -57,7 +55,6 @@ export default function SignupScreen() {
   };
 
   const convertDateForBackend = (ddmmyyyy: string) => {
-    // Convert DD-MM-YYYY to YYYY-MM-DD for backend
     if (ddmmyyyy.length === 10) {
       const [day, month, year] = ddmmyyyy.split('-');
       return `${year}-${month}-${day}`;
@@ -115,9 +112,9 @@ export default function SignupScreen() {
       return false;
     }
 
-    // Validate date is reasonable (not in future, not too old)
+    // Validate date (not in future, not too old)
     const [day, month, year] = dateOfBirth.split('-').map(Number);
-    const birthDate = new Date(year, month - 1, day); // month is 0-indexed in JS Date
+    const birthDate = new Date(year, month - 1, day);
     const today = new Date();
     
     // Check if date is valid
@@ -161,8 +158,8 @@ export default function SignupScreen() {
         email: email.trim(),
         password: password.trim(),
         dateOfBirth: convertDateForBackend(dateOfBirth.trim()),
-        phone: phone.replace(/\s/g, ''), // Remove spaces
-        points: 0 // Default points
+        phone: phone.replace(/\s/g, ''),
+        points: 0 
       });
 
       if (response.data.success) {

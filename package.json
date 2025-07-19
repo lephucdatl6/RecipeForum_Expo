@@ -3,13 +3,16 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
+    "start": "node scripts/generateApiConfig.js && expo start",
     "start-tunnel": "expo start --tunnel",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "generate-config": "node scripts/generateApiConfig.js",
+    "dev": "npm run generate-config && npm start",
+    "backend": "cd backend && node index.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",

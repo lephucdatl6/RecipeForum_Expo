@@ -14,7 +14,7 @@ transporter.verify((error, success) => {
   if (error) {
     console.log('Email configuration error:', error);
   } else {
-    console.log('Email service is ready to send messages');
+    console.log('Email service is ready');
   }
 });
 
@@ -58,10 +58,10 @@ const sendWelcomeEmail = async (userEmail, username) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('Welcome email sent successfully:', info.messageId);
+    console.log('Email sent successfully:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending welcome email:', error);
+    console.error('Error sending email:', error);
     return { success: false, error: error.message };
   }
 };
