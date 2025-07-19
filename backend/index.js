@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { Pool } = require('pg');
+const mongoose = require('mongoose');
 const { sendWelcomeEmail } = require('./emailService');
 const { generateApiConfig } = require('../scripts/generateApiConfig');
 
@@ -14,6 +15,68 @@ app.use(express.json());
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
+
+// MongoDB connection
+mongoose.connect(process.env.MONGODB_URI)
+.then(() => console.log('✅ MongoDB connected successfully'))
+.catch(err => console.error('❌ MongoDB connection error:', err));
+
+// Recipe Schema for MongoDB
+const recipeSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  description: {
+    type: String,
+    required: true
+  },
+  ingredients: [{
+    name: String,
+    amount: String,
+    unit: String
+  }],
+  instructions: [{
+    step: Number,
+    description: String
+  }],
+  cookingTime: {
+    type: Number, // in minutes
+    required: true
+  },
+  difficulty: {
+    type: String,
+    enum: ['Easy', 'Medium', 'Hard'],
+    default: 'Easy'
+  },
+  category: {
+    type: String,
+    required: true
+  },
+  author: {
+    type: String,
+    required: true
+  },
+  authorEmail: {
+    type: String,
+    required: true
+  },
+  likes: {
+    type: Number,
+    default: 0
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const Recipe = mongoose.model('Recipe', recipeSchema);
 
 // Route to get all users
 app.get('/api/users', async (req, res) => {
@@ -155,6 +218,135 @@ app.get('/api/debug-db', async (req, res) => {
     res.json({ database: result.rows[0].current_database });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== RECIPE ENDPOINTS (MongoDB) ====================
+
+// Post a new recipe
+app.post('/api/recipes', async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      ingredients,
+      instructions,
+      cookingTime,
+      difficulty,
+      category,
+      author,
+      authorEmail
+    } = req.body;
+
+    // Validate required fields
+    if (!title || !description || !cookingTime || !category || !author || !authorEmail) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: title, description, cookingTime, category, author, authorEmail' 
+      });
+    }
+
+    const recipe = new Recipe({
+      title,
+      description,
+      ingredients: ingredients || [],
+      instructions: instructions || [],
+      cookingTime,
+      difficulty: difficulty || 'Easy',
+      category,
+      author,
+      authorEmail
+    });
+
+    const savedRecipe = await recipe.save();
+    
+    console.log(`✅ New recipe posted: "${title}" by ${author}`);
+    res.status(201).json({
+      success: true,
+      message: 'Recipe posted successfully!',
+      recipe: savedRecipe
+    });
+
+  } catch (error) {
+    console.error('❌ Error posting recipe:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to post recipe',
+      details: error.message 
+    });
+  }
+});
+
+// Get all recipes
+app.get('/api/recipes', async (req, res) => {
+  try {
+    const recipes = await Recipe.find().sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      count: recipes.length,
+      recipes
+    });
+  } catch (error) {
+    console.error('❌ Error fetching recipes:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch recipes',
+      details: error.message 
+    });
+  }
+});
+
+// Get single recipe by ID
+app.get('/api/recipes/:id', async (req, res) => {
+  try {
+    const recipe = await Recipe.findById(req.params.id);
+    if (!recipe) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Recipe not found' 
+      });
+    }
+    res.json({
+      success: true,
+      recipe
+    });
+  } catch (error) {
+    console.error('❌ Error fetching recipe:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch recipe',
+      details: error.message 
+    });
+  }
+});
+
+// Like a recipe
+app.post('/api/recipes/:id/like', async (req, res) => {
+  try {
+    const recipe = await Recipe.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { likes: 1 } },
+      { new: true }
+    );
+    
+    if (!recipe) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Recipe not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Recipe liked!',
+      likes: recipe.likes
+    });
+  } catch (error) {
+    console.error('❌ Error liking recipe:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to like recipe',
+      details: error.message 
+    });
   }
 });
 
