@@ -1,9 +1,22 @@
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 
+interface UserData {
+  user_id: number;
+  username: string;
+  email: string;
+  dateOfBirth: string;
+  phone: string;
+  points: number;
+  created_at?: string;
+}
+
 export default function RecipesForumScreen() {
+  const params = useLocalSearchParams();
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -15,13 +28,40 @@ export default function RecipesForumScreen() {
     authorEmail: ''
   });
 
+  useEffect(() => {
+    if (params.userData) {
+      try {
+        const user = JSON.parse(params.userData as string);
+        console.log('RecipesForum - Parsed user data:', user); // Debug log
+        setUserData(user);
+        // Auto-populate author and email from logged-in user
+        setFormData(prev => ({
+          ...prev,
+          author: user.username,
+          authorEmail: user.email
+        }));
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        Alert.alert('Error', 'Failed to load user data. Please try again.');
+      }
+    } else {
+      console.log('RecipesForum - No user data available'); // Debug log
+    }
+  }, [params.userData]);
+
   const handlePostData = async () => {
     try {
       setIsPosting(true);
       
-      // Validate required fields
-      if (!formData.title || !formData.description || !formData.cookingTime || !formData.category || !formData.author || !formData.authorEmail) {
+      // Validate required fields (author and email are auto-populated from logged-in user)
+      if (!formData.title || !formData.description || !formData.cookingTime || !formData.category) {
         Alert.alert('Error', 'Please fill in all required fields');
+        return;
+      }
+
+      // Ensure user data is available
+      if (!userData) {
+        Alert.alert('Error', 'User information not available. Please login again.');
         return;
       }
 
@@ -86,95 +126,83 @@ export default function RecipesForumScreen() {
     }
   };
 
-  const handleGoBack = () => {
-    router.back();
-  };
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-          <Text style={styles.backButtonText}>← Back</Text>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Recipes Forum</Text>
+        </View>
+
+        <View style={styles.contentCard}>
+          <Text style={styles.welcomeText}>Welcome to Recipes Forum!</Text>
+          <Text style={styles.description}>
+            Share your amazing recipes with the community!
+          </Text>
+        </View>
+
+        {/* Recipe Posting Form */}
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>📝 Post a New Recipe</Text>
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Recipe Title *"
+            placeholderTextColor="#666"
+            value={formData.title}
+            onChangeText={(text) => setFormData({...formData, title: text})}
+          />
+          
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Recipe Description *"
+            placeholderTextColor="#666"
+            value={formData.description}
+            onChangeText={(text) => setFormData({...formData, description: text})}
+            multiline
+            numberOfLines={3}
+          />
+          
+          <View style={styles.row}>
+            <TextInput
+              style={[styles.input, styles.halfInput]}
+              placeholder="Cooking Time (minutes) *"
+              placeholderTextColor="#666"
+              value={formData.cookingTime}
+              onChangeText={(text) => setFormData({...formData, cookingTime: text})}
+              keyboardType="numeric"
+            />
+            
+            <TextInput
+              style={[styles.input, styles.halfInput]}
+              placeholder="Category *"
+              placeholderTextColor="#666"
+              value={formData.category}
+              onChangeText={(text) => setFormData({...formData, category: text})}
+            />
+          </View>
+          
+          {userData && (
+            <View style={styles.authorInfo}>
+              <Text style={styles.authorLabel}>Posting as:</Text>
+              <Text style={styles.authorText}>{userData.username} ({userData.email})</Text>
+            </View>
+          )}
+          
+          <Text style={styles.note}>* Required fields</Text>
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.postButton, isPosting && styles.postButtonDisabled]} 
+          onPress={handlePostData}
+          disabled={isPosting}
+        >
+          <Text style={styles.postButtonText}>
+            {isPosting ? '🔄 Posting...' : '📤 Post Recipe'}
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Recipes Forum</Text>
-        <View style={styles.placeholder} />
-      </View>
-
-      <View style={styles.contentCard}>
-        <Text style={styles.welcomeText}>Welcome to Recipes Forum!</Text>
-        <Text style={styles.description}>
-          Share your amazing recipes with the community!
-        </Text>
-      </View>
-
-      {/* Recipe Posting Form */}
-      <View style={styles.formCard}>
-        <Text style={styles.formTitle}>📝 Post a New Recipe</Text>
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Recipe Title *"
-          value={formData.title}
-          onChangeText={(text) => setFormData({...formData, title: text})}
-        />
-        
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Recipe Description *"
-          value={formData.description}
-          onChangeText={(text) => setFormData({...formData, description: text})}
-          multiline
-          numberOfLines={3}
-        />
-        
-        <View style={styles.row}>
-          <TextInput
-            style={[styles.input, styles.halfInput]}
-            placeholder="Cooking Time (minutes) *"
-            value={formData.cookingTime}
-            onChangeText={(text) => setFormData({...formData, cookingTime: text})}
-            keyboardType="numeric"
-          />
-          
-          <TextInput
-            style={[styles.input, styles.halfInput]}
-            placeholder="Category *"
-            value={formData.category}
-            onChangeText={(text) => setFormData({...formData, category: text})}
-          />
-        </View>
-        
-        <View style={styles.row}>
-          <TextInput
-            style={[styles.input, styles.halfInput]}
-            placeholder="Your Name *"
-            value={formData.author}
-            onChangeText={(text) => setFormData({...formData, author: text})}
-          />
-          
-          <TextInput
-            style={[styles.input, styles.halfInput]}
-            placeholder="Your Email *"
-            value={formData.authorEmail}
-            onChangeText={(text) => setFormData({...formData, authorEmail: text})}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-        
-        <Text style={styles.note}>* Required fields</Text>
-      </View>
-
-      <TouchableOpacity 
-        style={[styles.postButton, isPosting && styles.postButtonDisabled]} 
-        onPress={handlePostData}
-        disabled={isPosting}
-      >
-        <Text style={styles.postButtonText}>
-          {isPosting ? '🔄 Posting...' : '📤 Post Recipe'}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+      <BottomNavigation activeTab="forum" userData={userData} />
+    </View>
   );
 }
 
@@ -183,35 +211,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  scrollView: {
+    flex: 1,
+  },
   contentContainer: {
     paddingTop: 60,
     paddingHorizontal: 20,
     paddingBottom: 40,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-  },
-  backButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 5,
-  },
-  backButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
-  },
-  placeholder: {
-    width: 60,
   },
   contentCard: {
     backgroundColor: 'white',
@@ -305,5 +321,24 @@ const styles = StyleSheet.create({
     color: '#666',
     fontStyle: 'italic',
     marginTop: 5,
+  },
+  authorInfo: {
+    backgroundColor: '#e3f2fd',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2196f3',
+  },
+  authorLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  authorText: {
+    fontSize: 14,
+    color: '#2196f3',
+    fontWeight: '600',
   },
 });

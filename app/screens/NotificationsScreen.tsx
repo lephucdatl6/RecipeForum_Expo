@@ -13,7 +13,7 @@ interface UserData {
   created_at?: string;
 }
 
-export default function RecipesListScreen() {
+export default function NotificationsScreen() {
   const params = useLocalSearchParams();
   const [userData, setUserData] = useState<UserData | null>(null);
 
@@ -21,14 +21,14 @@ export default function RecipesListScreen() {
     if (params.userData) {
       try {
         const user = JSON.parse(params.userData as string);
-        console.log('RecipesList - Parsed user data:', user); // Debug log
+        console.log('Notifications - Parsed user data:', user); // Debug log
         setUserData(user);
       } catch (error) {
         console.error('Error parsing user data:', error);
         Alert.alert('Error', 'Failed to load user data. Please try again.');
       }
     } else {
-      console.log('RecipesList - No user data available'); // Debug log
+      console.log('Notifications - No user data available'); // Debug log
     }
   }, [params.userData]);
 
@@ -36,18 +36,17 @@ export default function RecipesListScreen() {
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         <View style={styles.header}>
-          <Text style={styles.title}>Recipes List</Text>
+          <Text style={styles.title}>Notifications</Text>
         </View>
 
         <View style={styles.contentCard}>
-          <Text style={styles.welcomeText}>Browse Recipes</Text>
+          <Text style={styles.welcomeText}>Notifications</Text>
           <Text style={styles.description}>
-            Discover a collection of delicious recipes from our community. 
-            Find your next favorite dish!
+            Stay updated with the latest activity from the Recipe Forum community!
           </Text>
         </View>
       </ScrollView>
-      <BottomNavigation activeTab="recipes" userData={userData} />
+      <BottomNavigation activeTab="notifications" userData={userData} />
     </View>
   );
 }
@@ -102,5 +101,62 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     textAlign: 'center',
     marginBottom: 25,
+  },
+  notificationCard: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 30,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#999',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  featuresCard: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  featuresTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  featuresList: {
+    marginTop: 10,
+  },
+  featureItem: {
+    fontSize: 16,
+    color: '#666',
+    marginVertical: 5,
+    lineHeight: 24,
   },
 });

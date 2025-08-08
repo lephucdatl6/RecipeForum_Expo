@@ -1,5 +1,5 @@
 // Auto-generated API configuration
-// Generated on: 8/8/2025, 2:00:09 PM
+// Generated on: 8/8/2025, 2:44:06 PM
 // Detected IP: 192.168.100.194
 
 export const API_BASE_URL = 'http://192.168.100.194:3001';

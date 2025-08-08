@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BottomNavigation from '../../components/BottomNavigation';
 
 interface UserData {
   user_id: number;
@@ -15,17 +16,35 @@ interface UserData {
 export default function MainScreen() {
   const params = useLocalSearchParams();
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (params.userData) {
-      try {
-        const user = JSON.parse(params.userData as string);
-        setUserData(user);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        Alert.alert('Error', 'Failed to load user data');
+    const initializeUserData = () => {
+      console.log('MainScreen - params:', params); // Debug log
+      if (params.userData) {
+        try {
+          const user = JSON.parse(params.userData as string);
+          console.log('MainScreen - Parsed user data:', user); // Debug log
+          setUserData(user);
+          setIsLoading(false);
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+          Alert.alert('Error', 'Failed to load user data. Please login again.', [
+            {
+              text: 'OK',
+              onPress: () => router.push('./LoginScreen')
+            }
+          ]);
+          setIsLoading(false);
+        }
+      } else {
+        console.log('MainScreen - No user data in params'); // Debug log
+        setIsLoading(false);
+        // Don't immediately show alert, just set loading to false
       }
-    }
+    };
+
+    initializeUserData();
   }, [params.userData]);
 
   const handleLogout = () => {
@@ -56,7 +75,7 @@ export default function MainScreen() {
     }
   };
 
-  if (!userData) {
+  if (isLoading) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Loading user data...</Text>
@@ -64,72 +83,92 @@ export default function MainScreen() {
     );
   }
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Home</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
+  if (!userData) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>No user data available</Text>
+        <TouchableOpacity 
+          style={styles.button} 
+          onPress={() => router.push('./LoginScreen')}
+        >
+          <Text style={styles.buttonText}>Go to Login</Text>
         </TouchableOpacity>
       </View>
+    );
+  }
 
-      <View style={styles.userCard}>
-        <Text style={styles.welcomeText}>Welcome back!</Text>
-        
-        <View style={styles.userInfo}>
-          <Text style={styles.userInfoTitle}>User Information</Text>
+  return (
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Home</Text>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.userCard}>
+          <Text style={styles.welcomeText}>Welcome back!</Text>
           
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Username:</Text>
-            <Text style={styles.infoValue}>{userData.username}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Email:</Text>
-            <Text style={styles.infoValue}>{userData.email}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Date of Birth:</Text>
-            <Text style={styles.infoValue}>{formatDate(userData.dateOfBirth)}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Phone:</Text>
-            <Text style={styles.infoValue}>{userData.phone}</Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Points:</Text>
-            <Text style={[styles.infoValue, styles.pointsValue]}>{userData.points}</Text>
-          </View>
-          
-          {userData.created_at && (
+          <View style={styles.userInfo}>
+            <Text style={styles.userInfoTitle}>User Information</Text>
+            
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Member since:</Text>
-              <Text style={styles.infoValue}>{formatDate(userData.created_at)}</Text>
+              <Text style={styles.infoLabel}>Username:</Text>
+              <Text style={styles.infoValue}>{userData.username}</Text>
             </View>
-          )}
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Email:</Text>
+              <Text style={styles.infoValue}>{userData.email}</Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Date of Birth:</Text>
+              <Text style={styles.infoValue}>{formatDate(userData.dateOfBirth)}</Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Phone:</Text>
+              <Text style={styles.infoValue}>{userData.phone}</Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Points:</Text>
+              <Text style={[styles.infoValue, styles.pointsValue]}>{userData.points}</Text>
+            </View>
+            
+            {userData.created_at && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Member since:</Text>
+                <Text style={styles.infoValue}>{formatDate(userData.created_at)}</Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-      <View style={styles.forumSection}>
-        <Text style={styles.sectionTitle}>Forum Features</Text>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={() => router.push('./RecipesForumScreen')}
-          >
-            <Text style={styles.buttonText}>Recipes Forum</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={() => router.push('./RecipesListScreen')}
-          >
-            <Text style={styles.buttonText}>Recipes List</Text>
-          </TouchableOpacity>
+        <View style={styles.forumSection}>
+          <Text style={styles.sectionTitle}>Forum Features</Text>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity 
+              style={styles.button} 
+              onPress={() => router.push({
+                pathname: './RecipesForumScreen',
+                params: { userData: JSON.stringify(userData) }
+              })}
+            >
+              <Text style={styles.buttonText}>Recipes Forum</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.button} 
+              onPress={() => router.push('./RecipesListScreen')}
+            >
+              <Text style={styles.buttonText}>Recipes List</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+      <BottomNavigation activeTab="home" userData={userData} />
+    </View>
   );
 }
 
@@ -137,6 +176,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   contentContainer: {
     paddingTop: 60,
