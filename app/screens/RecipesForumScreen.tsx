@@ -34,8 +34,8 @@ export default function RecipesForumScreen() {
         category: formData.category,
         author: formData.author,
         authorEmail: formData.authorEmail,
-        ingredients: [], // You can expand this later
-        instructions: [] // You can expand this later
+        ingredients: [], 
+        instructions: [] 
       };
 
       console.log('Posting recipe to:', `${API_BASE_URL}/api/recipes`);

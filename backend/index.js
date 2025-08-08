@@ -42,7 +42,7 @@ const recipeSchema = new mongoose.Schema({
     description: String
   }],
   cookingTime: {
-    type: Number, // in minutes
+    type: Number,
     required: true
   },
   difficulty: {
