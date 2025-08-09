@@ -34,28 +34,58 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
+    console.log('Login attempt:', { username: username.trim(), API_URL });
+    
     try {
+      console.log('Making login request to:', `${API_URL}/login`);
+            const axiosConfig = {
+        timeout: 10000, // 10 seconds timeout
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        // Add retry logic for network issues
+        validateStatus: function (status: number) {
+          return status < 500; // Accept all responses below 500
+        }
+      };
+      
       const response = await axios.post(`${API_URL}/login`, {
         username: username.trim(),
         password: password.trim(),
-      });
+      }, axiosConfig);
+
+      console.log('Login response:', response.data);
 
       if (response.data.success) {
+        console.log('Login successful, navigating to MainScreen');
         // Store user data and navigate to main screen
-        router.push({
+        router.replace({
           pathname: './MainScreen',
           params: { userData: JSON.stringify(response.data.user) }
         });
       } else {
+        console.log('Login failed:', response.data.message);
         setError(response.data.message || 'Login failed');
       }
     } catch (err: any) {
-      if (err.response && err.response.data && err.response.data.message) {
+      console.error('Login error details:', err);
+      console.error('Error name:', err.name);
+      console.error('Error code:', err.code);
+      console.error('Error message:', err.message);
+      
+      if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
+        setError('Connection timeout. Please check your network and try again.');
+      } else if (err.code === 'ECONNREFUSED') {
+        setError('Cannot connect to server. Please make sure the backend is running.');
+      } else if (err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN') {
+        setError('Network error. Please check your internet connection.');
+      } else if (err.response && err.response.data && err.response.data.message) {
         setError(err.response.data.message);
       } else if (err.message) {
-        setError(err.message);
+        setError(`Connection error: ${err.message}`);
       } else {
-        setError('Network error. Please check your connection.');
+        setError('Network error. Please check your connection and backend server.');
       }
     } finally {
       setIsLoading(false);

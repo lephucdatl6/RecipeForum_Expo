@@ -21,14 +21,13 @@ export default function NotificationsScreen() {
     if (params.userData) {
       try {
         const user = JSON.parse(params.userData as string);
-        console.log('Notifications - Parsed user data:', user); // Debug log
         setUserData(user);
       } catch (error) {
         console.error('Error parsing user data:', error);
         Alert.alert('Error', 'Failed to load user data. Please try again.');
       }
     } else {
-      console.log('Notifications - No user data available'); // Debug log
+      console.log('Notifications - No user data available');
     }
   }, [params.userData]);
 

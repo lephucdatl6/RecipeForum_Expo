@@ -20,11 +20,9 @@ export default function MainScreen() {
 
   useEffect(() => {
     const initializeUserData = () => {
-      console.log('MainScreen - params:', params); // Debug log
       if (params.userData) {
         try {
           const user = JSON.parse(params.userData as string);
-          console.log('MainScreen - Parsed user data:', user); // Debug log
           setUserData(user);
           setIsLoading(false);
         } catch (error) {
@@ -32,15 +30,14 @@ export default function MainScreen() {
           Alert.alert('Error', 'Failed to load user data. Please login again.', [
             {
               text: 'OK',
-              onPress: () => router.push('./LoginScreen')
+              onPress: () => router.replace('./LoginScreen')
             }
           ]);
           setIsLoading(false);
         }
       } else {
-        console.log('MainScreen - No user data in params'); // Debug log
+        console.log('MainScreen - No user data in params');
         setIsLoading(false);
-        // Don't immediately show alert, just set loading to false
       }
     };
 
@@ -56,7 +53,7 @@ export default function MainScreen() {
         { 
           text: 'Logout', 
           style: 'destructive',
-          onPress: () => router.push('./LoginScreen')
+          onPress: () => router.replace('./LoginScreen')
         }
       ]
     );
@@ -89,7 +86,7 @@ export default function MainScreen() {
         <Text style={styles.errorText}>No user data available</Text>
         <TouchableOpacity 
           style={styles.button} 
-          onPress={() => router.push('./LoginScreen')}
+          onPress={() => router.replace('./LoginScreen')}
         >
           <Text style={styles.buttonText}>Go to Login</Text>
         </TouchableOpacity>
@@ -144,26 +141,6 @@ export default function MainScreen() {
                 <Text style={styles.infoValue}>{formatDate(userData.created_at)}</Text>
               </View>
             )}
-          </View>
-        </View>
-        <View style={styles.forumSection}>
-          <Text style={styles.sectionTitle}>Forum Features</Text>
-          <View style={styles.buttonRow}>
-            <TouchableOpacity 
-              style={styles.button} 
-              onPress={() => router.push({
-                pathname: './RecipesForumScreen',
-                params: { userData: JSON.stringify(userData) }
-              })}
-            >
-              <Text style={styles.buttonText}>Recipes Forum</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.button} 
-              onPress={() => router.push('./RecipesListScreen')}
-            >
-              <Text style={styles.buttonText}>Recipes List</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -265,62 +242,23 @@ const styles = StyleSheet.create({
     color: '#28a745',
     fontSize: 18,
   },
-  forumSection: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  comingSoon: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  featuresList: {
-    marginTop: 10,
-  },
-  featureItem: {
-    fontSize: 16,
-    color: '#666',
-    marginVertical: 5,
-    lineHeight: 24,
-  },
   errorText: {
     color: '#ff4444',
     fontSize: 16,
     textAlign: 'center',
     marginTop: 50,
   },
-
-  buttonRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-around',
-  marginVertical: 10,
-  },
   button: {
     backgroundColor: '#ff8c00',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
+    marginTop: 20,
   },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+    textAlign: 'center',
   },
 });

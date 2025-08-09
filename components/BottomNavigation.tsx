@@ -9,9 +9,10 @@ interface BottomNavigationProps {
 
 export default function BottomNavigation({ activeTab, userData }: BottomNavigationProps) {
   const navigateToTab = (tab: string) => {
-    // Debug log to check userData
-    console.log('BottomNavigation - userData:', userData);
-    console.log('BottomNavigation - navigating to:', tab);
+    // Don't navigate if the user clicks on the currently active tab
+    if (tab === activeTab) {
+      return;
+    }
     
     if (!userData) {
       console.warn('BottomNavigation - No userData available!');

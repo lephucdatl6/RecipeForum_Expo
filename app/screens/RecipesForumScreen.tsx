@@ -32,7 +32,6 @@ export default function RecipesForumScreen() {
     if (params.userData) {
       try {
         const user = JSON.parse(params.userData as string);
-        console.log('RecipesForum - Parsed user data:', user); // Debug log
         setUserData(user);
         // Auto-populate author and email from logged-in user
         setFormData(prev => ({
@@ -45,7 +44,7 @@ export default function RecipesForumScreen() {
         Alert.alert('Error', 'Failed to load user data. Please try again.');
       }
     } else {
-      console.log('RecipesForum - No user data available'); // Debug log
+      console.log('RecipesForum - No user data available');
     }
   }, [params.userData]);
 
@@ -186,9 +185,7 @@ export default function RecipesForumScreen() {
               <Text style={styles.authorLabel}>Posting as:</Text>
               <Text style={styles.authorText}>{userData.username} ({userData.email})</Text>
             </View>
-          )}
-          
-          <Text style={styles.note}>* Required fields</Text>
+          )}          
         </View>
 
         <TouchableOpacity 
