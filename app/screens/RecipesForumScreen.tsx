@@ -1,6 +1,6 @@
-import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 
@@ -14,190 +14,244 @@ interface UserData {
   created_at?: string;
 }
 
+interface Recipe {
+  id?: number;
+  title: string;
+  description: string;
+  cookingTime: string;
+  difficulty?: string;
+  category: string;
+  author: string;
+  authorEmail: string;
+  created_at: string;
+}
+
 export default function RecipesForumScreen() {
   const params = useLocalSearchParams();
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [isPosting, setIsPosting] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    cookingTime: '',
-    difficulty: 'Easy',
-    category: '',
-    author: '',
-    authorEmail: ''
-  });
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (params.userData) {
       try {
         const user = JSON.parse(params.userData as string);
         setUserData(user);
-        // Auto-populate author and email from logged-in user
-        setFormData(prev => ({
-          ...prev,
-          author: user.username,
-          authorEmail: user.email
-        }));
       } catch (error) {
         console.error('Error parsing user data:', error);
         Alert.alert('Error', 'Failed to load user data. Please try again.');
       }
-    } else {
-      console.log('RecipesForum - No user data available');
     }
+    
+    // Load recipes when component mounts
+    loadRecipes();
   }, [params.userData]);
 
-  const handlePostData = async () => {
+  // Reload recipes when screen comes into focus (e.g., after creating a new post)
+  useFocusEffect(
+    useCallback(() => {
+      loadRecipes();
+    }, [])
+  );
+
+  const loadRecipes = async () => {
     try {
-      setIsPosting(true);
+      setIsLoading(true);
+      console.log('Loading recipes from:', `${API_BASE_URL}/api/recipes`);
+      const response = await fetch(`${API_BASE_URL}/api/recipes`);
       
-      // Validate required fields (author and email are auto-populated from logged-in user)
-      if (!formData.title || !formData.description || !formData.cookingTime || !formData.category) {
-        Alert.alert('Error', 'Please fill in all required fields');
-        return;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      // Ensure user data is available
-      if (!userData) {
-        Alert.alert('Error', 'User information not available. Please login again.');
+      
+      const data = await response.json();
+      console.log('API Response:', data);
+      
+      if (data.success && Array.isArray(data.recipes)) {
+        console.log('Loaded recipes from API:', data.recipes);
+        // Log the first recipe's date to debug format
+        if (data.recipes.length > 0) {
+          console.log('First recipe date format:', data.recipes[0].createdAt || data.recipes[0].created_at);
+        }
+        
+        // Map recipes and handle both createdAt and created_at field names
+        const recipesWithIds = data.recipes.map((recipe: any, index: number) => ({
+          ...recipe,
+          id: recipe._id || recipe.id || Date.now() + index, // Handle MongoDB _id
+          created_at: recipe.createdAt || recipe.created_at || new Date().toISOString()
+        }));
+        
+        setRecipes(recipesWithIds);
+        console.log('Successfully loaded', recipesWithIds.length, 'recipes from database');
         return;
-      }
-
-      // Prepare the recipe data
-      const recipeData = {
-        title: formData.title,
-        description: formData.description,
-        cookingTime: parseInt(formData.cookingTime),
-        difficulty: formData.difficulty,
-        category: formData.category,
-        author: formData.author,
-        authorEmail: formData.authorEmail,
-        ingredients: [], 
-        instructions: [] 
-      };
-
-      console.log('Posting recipe to:', `${API_BASE_URL}/api/recipes`);
-      console.log('Recipe data:', recipeData);
-
-      const response = await fetch(`${API_BASE_URL}/api/recipes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(recipeData),
-      });
-
-      const result = await response.json();
-      console.log('Server response:', result);
-
-      if (result.success) {
-        Alert.alert(
-          'Success! 🎉', 
-          'Your recipe has been posted successfully!',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Reset form
-                setFormData({
-                  title: '',
-                  description: '',
-                  cookingTime: '',
-                  difficulty: 'Easy',
-                  category: '',
-                  author: '',
-                  authorEmail: ''
-                });
-              }
-            }
-          ]
-        );
       } else {
-        Alert.alert('Error', result.error || 'Failed to post recipe');
+        console.log('No recipes found or invalid response structure:', data);
+        setRecipes([]);
+        return;
       }
-
     } catch (error) {
-      console.error('Error posting recipe:', error);
-      Alert.alert('Error', 'Network error. Please check your connection and try again.');
+      console.error('Error loading recipes from API:', error);
+      console.log('API connection failed - showing empty state instead of mock data');
+      // Show empty state instead of mock data when API fails
+      setRecipes([]);
     } finally {
-      setIsPosting(false);
+      setIsLoading(false);
     }
   };
 
+  const handleCreatePost = () => {
+    if (!userData) {
+      Alert.alert('Error', 'Please login to create a post');
+      return;
+    }
+    
+    router.push({
+      pathname: './CreatePostScreen',
+      params: { userData: JSON.stringify(userData) }
+    });
+  };
+
+  const handlePostPress = (recipe: Recipe) => {
+    router.push({
+      pathname: './PostDetailScreen',
+      params: { 
+        recipe: JSON.stringify(recipe),
+        userData: JSON.stringify(userData)
+      }
+    });
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      if (!dateString) return 'Unknown date';
+      
+      const date = new Date(dateString);
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        return 'Unknown date';
+      }
+      
+      const now = new Date();
+      const diffInMs = now.getTime() - date.getTime();
+      const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+      const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      const diffInWeeks = Math.floor(diffInDays / 7);
+      const diffInMonths = Math.floor(diffInDays / 30);
+      const diffInYears = Math.floor(diffInDays / 365);
+      
+      // Handle future dates
+      if (diffInMs < 0) return 'Just now';
+      
+      // Less than 1 minute
+      if (diffInMinutes < 1) return 'Just now';
+      
+      // Less than 1 hour
+      if (diffInMinutes < 60) {
+        return diffInMinutes === 1 ? '1 minute ago' : `${diffInMinutes} minutes ago`;
+      }
+      
+      // Less than 24 hours
+      if (diffInHours < 24) {
+        return diffInHours === 1 ? '1 hour ago' : `${diffInHours} hours ago`;
+      }
+      
+      // Less than 7 days
+      if (diffInDays < 7) {
+        return diffInDays === 1 ? '1 day ago' : `${diffInDays} days ago`;
+      }
+      
+      // Less than 4 weeks
+      if (diffInWeeks < 4) {
+        return diffInWeeks === 1 ? '1 week ago' : `${diffInWeeks} weeks ago`;
+      }
+      
+      // Less than 12 months
+      if (diffInMonths < 12) {
+        return diffInMonths === 1 ? '1 month ago' : `${diffInMonths} months ago`;
+      }
+      
+      // 1 year or more
+      return diffInYears === 1 ? '1 year ago' : `${diffInYears} years ago`;
+      
+    } catch {
+      return 'Unknown date';
+    }
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty.toLowerCase()) {
+      case 'easy':
+        return '#4CAF50'; 
+      case 'medium':
+        return '#ff6b35'; 
+      case 'hard':
+        return '#db1002ff'; 
+      default:
+        return '#ff6b35'; 
+    }
+  };
+
+  const renderRecipeCard = ({ item }: { item: Recipe }) => (
+    <TouchableOpacity style={styles.recipeCard} onPress={() => handlePostPress(item)}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.recipeTitle} numberOfLines={2}>{item.title}</Text>
+        <View style={styles.categoryBadge}>
+          <Text style={styles.categoryText}>{item.category}</Text>
+        </View>
+      </View>
+      
+      <Text style={styles.recipeDescription} numberOfLines={2}>
+        {item.description}
+      </Text>
+      
+      <View style={styles.cardFooter}>
+        <View style={styles.metaInfo}>
+          <Text style={styles.cookingTime}>⏱️ {item.cookingTime} min</Text>
+          {item.difficulty && (
+            <Text style={[styles.difficulty, { color: getDifficultyColor(item.difficulty) }]}>
+              🎯 {item.difficulty}
+            </Text>
+          )}
+          <Text style={styles.author}>👤 {item.author}</Text>
+        </View>
+        <Text style={styles.postDate}>{formatDate(item.created_at)}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyStateText}>📝</Text>
+      <Text style={styles.emptyStateTitle}>No recipes yet</Text>
+      <Text style={styles.emptyStateSubtitle}>Be the first to share your amazing recipe!</Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Recipes Forum</Text>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>Recipes Forum</Text>
+      </View>
 
-        <View style={styles.contentCard}>
-          <Text style={styles.welcomeText}>Welcome to Recipes Forum!</Text>
-          <Text style={styles.description}>
-            Share your amazing recipes with the community!
-          </Text>
-        </View>
+      <FlatList
+        data={recipes}
+        renderItem={renderRecipeCard}
+        keyExtractor={(item, index) => item.id ? item.id.toString() : `recipe-${index}`}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={loadRecipes} />
+        }
+        ListEmptyComponent={!isLoading ? renderEmptyState : null}
+      />
 
-        {/* Recipe Posting Form */}
-        <View style={styles.formCard}>
-          <Text style={styles.formTitle}>📝 Post a New Recipe</Text>
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Recipe Title *"
-            placeholderTextColor="#666"
-            value={formData.title}
-            onChangeText={(text) => setFormData({...formData, title: text})}
-          />
-          
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Recipe Description *"
-            placeholderTextColor="#666"
-            value={formData.description}
-            onChangeText={(text) => setFormData({...formData, description: text})}
-            multiline
-            numberOfLines={3}
-          />
-          
-          <View style={styles.row}>
-            <TextInput
-              style={[styles.input, styles.halfInput]}
-              placeholder="Cooking Time (minutes) *"
-              placeholderTextColor="#666"
-              value={formData.cookingTime}
-              onChangeText={(text) => setFormData({...formData, cookingTime: text})}
-              keyboardType="numeric"
-            />
-            
-            <TextInput
-              style={[styles.input, styles.halfInput]}
-              placeholder="Category *"
-              placeholderTextColor="#666"
-              value={formData.category}
-              onChangeText={(text) => setFormData({...formData, category: text})}
-            />
-          </View>
-          
-          {userData && (
-            <View style={styles.authorInfo}>
-              <Text style={styles.authorLabel}>Posting as:</Text>
-              <Text style={styles.authorText}>{userData.username} ({userData.email})</Text>
-            </View>
-          )}          
-        </View>
+      {/* Floating Action Button */}
+      <TouchableOpacity style={styles.fab} onPress={handleCreatePost}>
+        <Text style={styles.fabText}>➕</Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.postButton, isPosting && styles.postButtonDisabled]} 
-          onPress={handlePostData}
-          disabled={isPosting}
-        >
-          <Text style={styles.postButtonText}>
-            {isPosting ? '🔄 Posting...' : '📤 Post Recipe'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
       <BottomNavigation activeTab="forum" userData={userData} />
     </View>
   );
@@ -208,29 +262,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
   header: {
+    paddingTop: 60,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
   },
-  contentCard: {
+  listContainer: {
+    paddingBottom: 100, // Space for FAB
+  },
+  recipeCard: {
     backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    marginBottom: 20,
+    marginHorizontal: 15,
+    marginVertical: 8,
+    borderRadius: 12,
+    padding: 15,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -238,104 +293,110 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
-    elevation: 5,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff8c00',
   },
-  welcomeText: {
-    fontSize: 24,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  recipeTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#ff8c00',
-    marginBottom: 15,
-    textAlign: 'center',
+    color: '#333',
+    flex: 1,
+    marginRight: 10,
   },
-  description: {
-    fontSize: 16,
+  categoryBadge: {
+    backgroundColor: '#ff8c00',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  categoryText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  recipeDescription: {
+    fontSize: 14,
     color: '#666',
-    lineHeight: 24,
-    textAlign: 'center',
-    marginBottom: 25,
+    lineHeight: 20,
+    marginBottom: 12,
   },
-
-  postButton: {
-  backgroundColor: '#4CAF50',
-  padding: 12,
-  margin: 20,
-  borderRadius: 8,
-  alignItems: 'center',
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  postButtonDisabled: {
-    backgroundColor: '#A5D6A7',
-    opacity: 0.6,
+  metaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  postButtonText: {
-    color: '#fff',
-    fontSize: 16,
+  cookingTime: {
+    fontSize: 12,
+    color: '#666',
+    marginRight: 15,
+  },
+  difficulty: {
+    fontSize: 12,
     fontWeight: 'bold',
+    marginRight: 15,
   },
-  formCard: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+  author: {
+    fontSize: 12,
+    color: '#666',
   },
-  formTitle: {
+  postDate: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+  },
+  emptyStateText: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
+    marginBottom: 8,
+  },
+  emptyStateSubtitle: {
+    fontSize: 16,
+    color: '#666',
     textAlign: 'center',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
+  fab: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#ff8c00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  halfInput: {
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  note: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-    marginTop: 5,
-  },
-  authorInfo: {
-    backgroundColor: '#e3f2fd',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#2196f3',
-  },
-  authorLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  authorText: {
-    fontSize: 14,
-    color: '#2196f3',
-    fontWeight: '600',
+  fabText: {
+    fontSize: 24,
+    color: 'white',
   },
 });

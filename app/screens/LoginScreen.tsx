@@ -58,10 +58,10 @@ export default function LoginScreen() {
       console.log('Login response:', response.data);
 
       if (response.data.success) {
-        console.log('Login successful, navigating to MainScreen');
-        // Store user data and navigate to main screen
+        console.log('Login successful, navigating to RecipesForumScreen');
+        // Store user data and navigate to forum screen
         router.replace({
-          pathname: './MainScreen',
+          pathname: './RecipesForumScreen',
           params: { userData: JSON.stringify(response.data.user) }
         });
       } else {

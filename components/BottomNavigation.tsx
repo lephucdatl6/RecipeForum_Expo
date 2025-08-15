@@ -3,7 +3,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface BottomNavigationProps {
-  activeTab: 'home' | 'forum' | 'recipes' | 'notifications';
+  activeTab: 'profile' | 'forum' | 'recipes' | 'notifications';
   userData?: any;
 }
 
@@ -22,12 +22,6 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
     const navigationParams = { userData: JSON.stringify(userData) };
     
     switch (tab) {
-      case 'home':
-        router.replace({
-          pathname: './MainScreen',
-          params: navigationParams
-        });
-        break;
       case 'forum':
         router.replace({
           pathname: './RecipesForumScreen',
@@ -46,21 +40,17 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
           params: navigationParams
         });
         break;
+      case 'profile':
+        router.replace({
+          pathname: './MainScreen',
+          params: navigationParams
+        });
+        break;
     }
   };
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity 
-        style={styles.tab} 
-        onPress={() => navigateToTab('home')}
-      >
-        <View style={styles.iconContainer}>
-          <Text style={[styles.icon, activeTab === 'home' && styles.activeIcon]}>🏠</Text>
-        </View>
-        <Text style={[styles.label, activeTab === 'home' && styles.activeLabel]}>Home</Text>
-      </TouchableOpacity>
-
       <TouchableOpacity 
         style={styles.tab} 
         onPress={() => navigateToTab('forum')}
@@ -76,7 +66,7 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
         onPress={() => navigateToTab('recipes')}
       >
         <View style={styles.iconContainer}>
-          <Text style={[styles.icon, activeTab === 'recipes' && styles.activeIcon]}>📋</Text>
+          <Text style={[styles.icon, activeTab === 'recipes' && styles.activeIcon]}>📖</Text>
         </View>
         <Text style={[styles.label, activeTab === 'recipes' && styles.activeLabel]}>Recipes List</Text>
       </TouchableOpacity>
@@ -90,6 +80,16 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
         </View>
         <Text style={[styles.label, activeTab === 'notifications' && styles.activeLabel]}>Notifications</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.tab} 
+        onPress={() => navigateToTab('profile')}
+      >
+        <View style={styles.iconContainer}>
+          <Text style={[styles.icon, activeTab === 'profile' && styles.activeIcon]}>👤</Text>
+        </View>
+        <Text style={[styles.label, activeTab === 'profile' && styles.activeLabel]}>Profile</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#ffffff',
     paddingVertical: 8,
-    paddingBottom: 20, // Account for safe area
+    paddingBottom: 20, 
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     shadowColor: '#000',

@@ -98,7 +98,7 @@ export default function MainScreen() {
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         <View style={styles.header}>
-          <Text style={styles.title}>Home</Text>
+          <Text style={styles.title}>Profile</Text>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
@@ -144,7 +144,7 @@ export default function MainScreen() {
           </View>
         </View>
       </ScrollView>
-      <BottomNavigation activeTab="home" userData={userData} />
+      <BottomNavigation activeTab="profile" userData={userData} />
     </View>
   );
 }

@@ -19,11 +19,17 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack 
+        screenOptions={{
+          animation: 'none',
+        }}
+      >
         <Stack.Screen name="screens/LoginScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/SignupScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/MainScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/RecipesForumScreen" options={{ headerShown: false }} />
+        <Stack.Screen name="screens/PostDetailScreen" options={{ headerShown: false }} />
+        <Stack.Screen name="screens/CreatePostScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/RecipesListScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/NotificationsScreen" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
