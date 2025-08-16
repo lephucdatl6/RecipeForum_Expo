@@ -1,6 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 interface Recipe {
   id: number;
@@ -96,6 +97,65 @@ export default function PostDetailScreen() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!recipe || !userData) return;
+
+    Alert.alert(
+      'Delete Post',
+      `Are you sure you want to delete "${recipe.title}"? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+
+              const result = await response.json();
+
+              if (result.success) {
+                Alert.alert(
+                  'Your post has been deleted successfully!',
+                  '',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        router.back();
+                      }
+                    }
+                  ]
+                );
+              } else {
+                Alert.alert('Error', result.error || 'Failed to delete post');
+              }
+            } catch (error) {
+              console.error('Error deleting post:', error);
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              Alert.alert('Error', `Failed to delete post: ${errorMessage}`);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Check if current user is the owner of the post
+  const isOwner = userData && recipe && userData.email === recipe.authorEmail;
+
   if (!recipe) {
     return (
       <>
@@ -131,7 +191,14 @@ export default function PostDetailScreen() {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         <View style={styles.recipeCard}>
           <View style={styles.recipeHeader}>
-            <Text style={styles.recipeTitle}>{recipe.title}</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.recipeTitle}>{recipe.title}</Text>
+              {isOwner && (
+                <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+                  <Text style={styles.deleteButtonText}>🗑️</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             <View style={styles.categoryBadge}>
               <Text style={styles.categoryText}>{recipe.category}</Text>
             </View>
@@ -226,11 +293,27 @@ const styles = StyleSheet.create({
   recipeHeader: {
     marginBottom: 20,
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   recipeTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 10,
+    flex: 1,
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#ffebee',
+    marginLeft: 10,
+  },
+  deleteButtonText: {
+    fontSize: 18,
+    color: '#f44336',
   },
   categoryBadge: {
     backgroundColor: '#ff8c00',

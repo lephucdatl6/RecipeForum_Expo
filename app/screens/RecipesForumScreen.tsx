@@ -59,7 +59,6 @@ export default function RecipesForumScreen() {
   const loadRecipes = async () => {
     try {
       setIsLoading(true);
-      console.log('Loading recipes from:', `${API_BASE_URL}/api/recipes`);
       const response = await fetch(`${API_BASE_URL}/api/recipes`);
       
       if (!response.ok) {
@@ -67,15 +66,8 @@ export default function RecipesForumScreen() {
       }
       
       const data = await response.json();
-      console.log('API Response:', data);
       
       if (data.success && Array.isArray(data.recipes)) {
-        console.log('Loaded recipes from API:', data.recipes);
-        // Log the first recipe's date to debug format
-        if (data.recipes.length > 0) {
-          console.log('First recipe date format:', data.recipes[0].createdAt || data.recipes[0].created_at);
-        }
-        
         // Map recipes and handle both createdAt and created_at field names
         const recipesWithIds = data.recipes.map((recipe: any, index: number) => ({
           ...recipe,
@@ -84,7 +76,6 @@ export default function RecipesForumScreen() {
         }));
         
         setRecipes(recipesWithIds);
-        console.log('Successfully loaded', recipesWithIds.length, 'recipes from database');
         return;
       } else {
         console.log('No recipes found or invalid response structure:', data);

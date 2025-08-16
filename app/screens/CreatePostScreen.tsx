@@ -78,9 +78,6 @@ export default function CreatePostScreen() {
         instructions: [] 
       };
 
-      console.log('Posting recipe to:', `${API_BASE_URL}/api/recipes`);
-      console.log('Recipe data:', recipeData);
-
       const response = await fetch(`${API_BASE_URL}/api/recipes`, {
         method: 'POST',
         headers: {
@@ -90,7 +87,6 @@ export default function CreatePostScreen() {
       });
 
       const result = await response.json();
-      console.log('Server response:', result);
 
       if (result.success) {
         Alert.alert(

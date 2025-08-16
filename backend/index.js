@@ -261,7 +261,6 @@ app.post('/api/recipes', async (req, res) => {
 
     const savedRecipe = await recipe.save();
     
-    console.log(`✅ New recipe posted: "${title}" by ${author}`);
     res.status(201).json({
       success: true,
       message: 'Recipe posted successfully!',
@@ -382,6 +381,37 @@ app.post('/api/recipes/:id/downvote', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to downvote recipe',
+      details: error.message 
+    });
+  }
+});
+
+// Delete a recipe post
+app.delete('/api/recipes/:id', async (req, res) => {
+  try {
+    const recipe = await Recipe.findByIdAndDelete(req.params.id);
+    
+    if (!recipe) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Recipe not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Recipe deleted successfully!',
+      deletedRecipe: {
+        id: recipe._id,
+        title: recipe.title,
+        author: recipe.author
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting recipe:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to delete recipe',
       details: error.message 
     });
   }
