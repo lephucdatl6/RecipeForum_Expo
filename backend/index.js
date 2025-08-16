@@ -400,8 +400,8 @@ app.delete('/api/recipes/:id', async (req, res) => {
     
     res.json({
       success: true,
-      message: 'Recipe deleted successfully!',
-      deletedRecipe: {
+      message: 'Post deleted successfully!',
+      deletedPost: {
         id: recipe._id,
         title: recipe.title,
         author: recipe.author

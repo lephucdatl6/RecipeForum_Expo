@@ -45,7 +45,6 @@ export default function LoginScreen() {
     console.log('Login attempt:', { username: username.trim(), API_URL });
     
     try {
-      console.log('Making login request to:', `${API_URL}/login`);
       const axiosConfig = {
         timeout: 10000, // 10 seconds timeout
         headers: {
@@ -62,8 +61,6 @@ export default function LoginScreen() {
         username: username.trim(),
         password: password.trim(),
       }, axiosConfig);
-
-      console.log('Login response:', response.data);
 
       if (response.data.success) {
         console.log('Login successful, navigating to RecipesForumScreen');
