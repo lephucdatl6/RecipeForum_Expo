@@ -115,14 +115,7 @@ export default function PostDetailScreen() {
             try {
               const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}`, {
                 method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
               });
-
-              if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-              }
 
               const result = await response.json();
 
@@ -144,8 +137,7 @@ export default function PostDetailScreen() {
               }
             } catch (error) {
               console.error('Error deleting post:', error);
-              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-              Alert.alert('Error', `Failed to delete post: ${errorMessage}`);
+              Alert.alert('Error', 'Failed to delete post. Please try again.');
             }
           }
         }
@@ -308,7 +300,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: '#ffebee',
+    backgroundColor: '#FF5630',
     marginLeft: 10,
   },
   deleteButtonText: {

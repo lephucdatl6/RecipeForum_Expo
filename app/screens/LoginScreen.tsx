@@ -1,7 +1,15 @@
 import axios from 'axios';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity
+} from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 
 const API_URL = `${API_BASE_URL}/api/auth`;
@@ -34,9 +42,11 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
+    console.log('Login attempt:', { username: username.trim(), API_URL });
     
     try {
-        const axiosConfig = {
+      console.log('Making login request to:', `${API_URL}/login`);
+      const axiosConfig = {
         timeout: 10000, // 10 seconds timeout
         headers: {
           'Content-Type': 'application/json',
@@ -52,6 +62,8 @@ export default function LoginScreen() {
         username: username.trim(),
         password: password.trim(),
       }, axiosConfig);
+
+      console.log('Login response:', response.data);
 
       if (response.data.success) {
         console.log('Login successful, navigating to RecipesForumScreen');
@@ -93,8 +105,14 @@ export default function LoginScreen() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.title}>Login</Text>
         
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -139,8 +157,8 @@ export default function LoginScreen() {
         <TouchableOpacity style={styles.linkButton} onPress={navigateToSignup}>
           <Text style={styles.linkText}>Don't have an account? Sign up</Text>
         </TouchableOpacity>
-      </View>
-    </TouchableWithoutFeedback>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
