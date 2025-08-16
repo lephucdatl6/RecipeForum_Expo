@@ -15,7 +15,7 @@ import { API_BASE_URL } from '../../config/apiConfig';
 const API_URL = `${API_BASE_URL}/api/auth`;
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -24,12 +24,14 @@ export default function LoginScreen() {
     setError('');
 
     // Validation
-    if (!username.trim()) {
-      setError('Username is required');
+    if (!email.trim()) {
+      setError('Email is required');
       return;
     }
-    if (username.trim().length < 3) {
-      setError('Username must be at least 3 characters long');
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address');
       return;
     }
     if (!password.trim()) {
@@ -42,7 +44,7 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
-    console.log('Login attempt:', { username: username.trim(), API_URL });
+    console.log('Login attempt:', { email: email.trim(), API_URL });
     
     try {
       const axiosConfig = {
@@ -53,12 +55,12 @@ export default function LoginScreen() {
         },
         // Add retry logic for network issues
         validateStatus: function (status: number) {
-          return status < 500; // Accept all responses below 500
+          return status < 500;
         }
       };
       
       const response = await axios.post(`${API_URL}/login`, {
-        username: username.trim(),
+        email: email.trim(),
         password: password.trim(),
       }, axiosConfig);
 
@@ -115,16 +117,18 @@ export default function LoginScreen() {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         
         <TextInput
-          style={[styles.input, error && username === '' ? styles.inputError : null]}
-          placeholder="Username"
-          value={username}
+          style={[styles.input, error && email === '' ? styles.inputError : null]}
+          placeholder="Email"
+          value={email}
           onChangeText={(text) => {
-            setUsername(text);
+            setEmail(text);
             if (error && text.trim()) setError('');
           }}
           placeholderTextColor="#aaa"
           autoCapitalize="none"
           autoCorrect={false}
+          keyboardType="email-address"
+          autoComplete="email"
         />
         
         <TextInput

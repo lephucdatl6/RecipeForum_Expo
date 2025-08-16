@@ -49,7 +49,7 @@ export default function RecipesForumScreen() {
     loadRecipes();
   }, [params.userData]);
 
-  // Reload recipes when screen comes into focus (e.g., after creating a new post)
+  // Reload recipes when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       loadRecipes();
@@ -68,10 +68,9 @@ export default function RecipesForumScreen() {
       const data = await response.json();
       
       if (data.success && Array.isArray(data.recipes)) {
-        // Map recipes and handle both createdAt and created_at field names
         const recipesWithIds = data.recipes.map((recipe: any, index: number) => ({
           ...recipe,
-          id: recipe._id || recipe.id || Date.now() + index, // Handle MongoDB _id
+          id: recipe._id || recipe.id || Date.now() + index,
           created_at: recipe.createdAt || recipe.created_at || new Date().toISOString()
         }));
         

@@ -164,19 +164,19 @@ app.post('/api/auth/signup', async (req, res) => {
 
 // Login route
 app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { email, password } = req.body;
   
   try {
-    // Find user by username
+    // Find user by email
     const result = await pool.query(
-      'SELECT user_id, username, email, password, dob, phone, point, created_at FROM users WHERE username = $1',
-      [username]
+      'SELECT user_id, username, email, password, dob, phone, point, created_at FROM users WHERE email = $1',
+      [email]
     );
     
     if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid username or password'
+        message: 'Invalid email or password'
       });
     }
     
@@ -188,7 +188,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid username or password'
+        message: 'Invalid email or password'
       });
     }
     
