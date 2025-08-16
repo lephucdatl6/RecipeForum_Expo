@@ -62,7 +62,11 @@ const recipeSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  likes: {
+  upvotes: {
+    type: Number,
+    default: 0
+  },
+  downvotes: {
     type: Number,
     default: 0
   },
@@ -95,13 +99,11 @@ async function ensureCreatedAtColumn() {
       ALTER TABLE users 
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()
     `);
-    // console.log('Ensured created_at column exists'); // Commented out to reduce console noise
+    // console.log('Ensured created_at column exists');
   } catch (err) {
     console.error('Error adding created_at column:', err.message);
   }
 }
-
-// Call this when server starts
 ensureCreatedAtColumn();
 
 // Authentication routes
@@ -267,7 +269,7 @@ app.post('/api/recipes', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error posting recipe:', error);
+    console.error('Error posting recipe:', error);
     res.status(500).json({ 
       success: false,
       error: 'Failed to post recipe',
@@ -286,7 +288,7 @@ app.get('/api/recipes', async (req, res) => {
       recipes
     });
   } catch (error) {
-    console.error('❌ Error fetching recipes:', error);
+    console.error('Error fetching recipes:', error);
     res.status(500).json({ 
       success: false,
       error: 'Failed to fetch recipes',
@@ -310,7 +312,7 @@ app.get('/api/recipes/:id', async (req, res) => {
       recipe
     });
   } catch (error) {
-    console.error('❌ Error fetching recipe:', error);
+    console.error('Error fetching recipe:', error);
     res.status(500).json({ 
       success: false,
       error: 'Failed to fetch recipe',
@@ -319,12 +321,12 @@ app.get('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// Like a recipe
-app.post('/api/recipes/:id/like', async (req, res) => {
+// Upvote a recipe
+app.post('/api/recipes/:id/upvote', async (req, res) => {
   try {
     const recipe = await Recipe.findByIdAndUpdate(
       req.params.id,
-      { $inc: { likes: 1 } },
+      { $inc: { upvotes: 1 } },
       { new: true }
     );
     
@@ -337,14 +339,49 @@ app.post('/api/recipes/:id/like', async (req, res) => {
     
     res.json({
       success: true,
-      message: 'Recipe liked!',
-      likes: recipe.likes
+      message: 'Recipe upvoted!',
+      upvotes: recipe.upvotes,
+      downvotes: recipe.downvotes,
+      netVotes: recipe.upvotes - recipe.downvotes
     });
   } catch (error) {
-    console.error('❌ Error liking recipe:', error);
+    console.error('Error upvoting recipe:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Failed to like recipe',
+      error: 'Failed to upvote recipe',
+      details: error.message 
+    });
+  }
+});
+
+// Downvote a recipe
+app.post('/api/recipes/:id/downvote', async (req, res) => {
+  try {
+    const recipe = await Recipe.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { downvotes: 1 } },
+      { new: true }
+    );
+    
+    if (!recipe) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Recipe not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Recipe downvoted!',
+      upvotes: recipe.upvotes,
+      downvotes: recipe.downvotes,
+      netVotes: recipe.upvotes - recipe.downvotes
+    });
+  } catch (error) {
+    console.error('Error downvoting recipe:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to downvote recipe',
       details: error.message 
     });
   }

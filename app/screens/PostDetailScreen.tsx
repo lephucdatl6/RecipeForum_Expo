@@ -11,6 +11,8 @@ interface Recipe {
   difficulty?: string;
   author: string;
   authorEmail: string;
+  upvotes?: number;
+  downvotes?: number;
   created_at: string;
 }
 
