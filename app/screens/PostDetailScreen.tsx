@@ -56,6 +56,15 @@ export default function PostDetailScreen() {
     router.back();
   };
 
+  const handleViewAuthorProfile = () => {
+    if (recipe?.authorEmail) {
+      router.push({
+        pathname: './UserProfileScreen',
+        params: { email: recipe.authorEmail }
+      });
+    }
+  };
+
   const formatDate = (dateString: string) => {
     try {
       if (!dateString) return 'Unknown date';
@@ -211,7 +220,9 @@ export default function PostDetailScreen() {
             )}
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>👤 Author:</Text>
-              <Text style={styles.metaValue}>{recipe.author}</Text>
+              <TouchableOpacity onPress={handleViewAuthorProfile}>
+                <Text style={[styles.metaValue, styles.authorName]}>{recipe.author}</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>📅 Posted:</Text>
@@ -340,6 +351,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     fontWeight: '600',
+  },
+  authorName: {
+    color: '#333333',
+    textDecorationLine: 'underline',
   },
   difficultyValue: {
     fontWeight: 'bold',

@@ -70,6 +70,11 @@ const recipeSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  isActive: {
+    type: Number,
+    default: 1,
+    enum: [0, 1] // 0 = hidden/deleted, 1 = active/visible
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -77,6 +82,10 @@ const recipeSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  deletedAt: {
+    type: Date,
+    default: null
   }
 });
 
@@ -89,6 +98,41 @@ app.get('/api/users', async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Get user profile by email (for viewing other users' profiles)
+app.get('/api/users/profile/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const result = await pool.query(
+      'SELECT username, email, point, created_at FROM users WHERE email = $1',
+      [email]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    const user = result.rows[0];
+    res.json({
+      success: true,
+      user: {
+        username: user.username,
+        email: user.email,
+        points: user.point,
+        memberSince: user.created_at
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching user profile:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch user profile' 
+    });
   }
 });
 
@@ -301,10 +345,10 @@ app.post('/api/recipes', async (req, res) => {
   }
 });
 
-// Get all recipes
+// Get all recipes (only active ones)
 app.get('/api/recipes', async (req, res) => {
   try {
-    const recipes = await Recipe.find().sort({ createdAt: -1 });
+    const recipes = await Recipe.find({ isActive: 1 }).sort({ createdAt: -1 });
     res.json({
       success: true,
       count: recipes.length,
@@ -320,14 +364,14 @@ app.get('/api/recipes', async (req, res) => {
   }
 });
 
-// Get single recipe by ID
+// Get single recipe by ID (only if active)
 app.get('/api/recipes/:id', async (req, res) => {
   try {
-    const recipe = await Recipe.findById(req.params.id);
+    const recipe = await Recipe.findOne({ _id: req.params.id, isActive: 1 });
     if (!recipe) {
       return res.status(404).json({ 
         success: false,
-        error: 'Recipe not found' 
+        error: 'Recipe not found or has been removed' 
       });
     }
     res.json({
@@ -344,11 +388,11 @@ app.get('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// Upvote a recipe
+// Upvote a recipe (only if active)
 app.post('/api/recipes/:id/upvote', async (req, res) => {
   try {
-    const recipe = await Recipe.findByIdAndUpdate(
-      req.params.id,
+    const recipe = await Recipe.findOneAndUpdate(
+      { _id: req.params.id, isActive: 1 },
       { $inc: { upvotes: 1 } },
       { new: true }
     );
@@ -356,7 +400,7 @@ app.post('/api/recipes/:id/upvote', async (req, res) => {
     if (!recipe) {
       return res.status(404).json({ 
         success: false,
-        error: 'Recipe not found' 
+        error: 'Recipe not found or has been removed' 
       });
     }
     
@@ -377,11 +421,11 @@ app.post('/api/recipes/:id/upvote', async (req, res) => {
   }
 });
 
-// Downvote a recipe
+// Downvote a recipe (only if active)
 app.post('/api/recipes/:id/downvote', async (req, res) => {
   try {
-    const recipe = await Recipe.findByIdAndUpdate(
-      req.params.id,
+    const recipe = await Recipe.findOneAndUpdate(
+      { _id: req.params.id, isActive: 1 },
       { $inc: { downvotes: 1 } },
       { new: true }
     );
@@ -389,7 +433,7 @@ app.post('/api/recipes/:id/downvote', async (req, res) => {
     if (!recipe) {
       return res.status(404).json({ 
         success: false,
-        error: 'Recipe not found' 
+        error: 'Recipe not found or has been removed' 
       });
     }
     
@@ -410,15 +454,23 @@ app.post('/api/recipes/:id/downvote', async (req, res) => {
   }
 });
 
-// Delete a recipe post
+// Soft delete a recipe post (mark as inactive)
 app.delete('/api/recipes/:id', async (req, res) => {
   try {
-    const recipe = await Recipe.findByIdAndDelete(req.params.id);
+    const recipe = await Recipe.findOneAndUpdate(
+      { _id: req.params.id, isActive: 1 },
+      { 
+        isActive: 0,
+        deletedAt: new Date(),
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
     
     if (!recipe) {
       return res.status(404).json({ 
         success: false,
-        error: 'Recipe not found' 
+        error: 'Recipe not found or already deleted' 
       });
     }
     
@@ -428,7 +480,8 @@ app.delete('/api/recipes/:id', async (req, res) => {
       deletedPost: {
         id: recipe._id,
         title: recipe.title,
-        author: recipe.author
+        author: recipe.author,
+        deletedAt: recipe.deletedAt
       }
     });
   } catch (error) {
@@ -436,6 +489,90 @@ app.delete('/api/recipes/:id', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to delete recipe',
+      details: error.message 
+    });
+  }
+});
+
+// ==================== ADMIN ENDPOINTS (Optional) ====================
+
+// Get all deleted/inactive recipes (admin only)
+app.get('/api/admin/recipes/deleted', async (req, res) => {
+  try {
+    const deletedRecipes = await Recipe.find({ isActive: 0 }).sort({ deletedAt: -1 });
+    res.json({
+      success: true,
+      count: deletedRecipes.length,
+      recipes: deletedRecipes
+    });
+  } catch (error) {
+    console.error('Error fetching deleted recipes:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch deleted recipes',
+      details: error.message 
+    });
+  }
+});
+
+// Restore a deleted recipe (admin only)
+app.patch('/api/admin/recipes/:id/restore', async (req, res) => {
+  try {
+    const recipe = await Recipe.findOneAndUpdate(
+      { _id: req.params.id, isActive: 0 },
+      { 
+        isActive: 1,
+        deletedAt: null,
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+    
+    if (!recipe) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Deleted recipe not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Recipe restored successfully!',
+      recipe: {
+        id: recipe._id,
+        title: recipe.title,
+        author: recipe.author
+      }
+    });
+  } catch (error) {
+    console.error('Error restoring recipe:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to restore recipe',
+      details: error.message 
+    });
+  }
+});
+
+// Get all recipes (active and inactive) for admin
+app.get('/api/admin/recipes/all', async (req, res) => {
+  try {
+    const allRecipes = await Recipe.find().sort({ createdAt: -1 });
+    const activeCount = allRecipes.filter(r => r.isActive === 1).length;
+    const deletedCount = allRecipes.filter(r => r.isActive === 0).length;
+    
+    res.json({
+      success: true,
+      totalCount: allRecipes.length,
+      activeCount,
+      deletedCount,
+      recipes: allRecipes
+    });
+  } catch (error) {
+    console.error('Error fetching all recipes:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch all recipes',
       details: error.message 
     });
   }

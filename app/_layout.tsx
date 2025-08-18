@@ -31,6 +31,7 @@ export default function RootLayout() {
         <Stack.Screen name="screens/CreatePostScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/RecipesListScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/NotificationsScreen" options={{ headerShown: false }} />
+        <Stack.Screen name="screens/UserProfileScreen" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
