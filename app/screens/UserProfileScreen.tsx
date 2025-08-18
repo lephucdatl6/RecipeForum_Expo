@@ -20,6 +20,7 @@ export default function UserProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string>('');
   const [originalUserData, setOriginalUserData] = useState<UserData | null>(null);
+  const [lastProcessedUpdatedEmail, setLastProcessedUpdatedEmail] = useState<string>('');
 
   // Initialize user data from params on first load
   useEffect(() => {
@@ -47,16 +48,15 @@ export default function UserProfileScreen() {
     initializeUserData();
   }, [params.userData]);
 
-  // Fetch fresh user data from API and merge with original data
-  const fetchUserData = useCallback(async () => {
-    if (!userEmail || !originalUserData) return;
-
+  // Helper function to fetch user data with a specific email
+  const fetchUserDataWithEmail = useCallback(async (emailToFetch: string, skipErrorLog = false) => {
+    if (!emailToFetch || !originalUserData) return;
+    
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/profile/${userEmail}`);
+      const response = await fetch(`${API_BASE_URL}/api/users/profile/${emailToFetch}`);
       const data = await response.json();
 
       if (data.success) {
-        // Merge API data with original login data, prioritizing API for updatable fields
         const apiUser = data.user;
         const mergedUser: UserData = {
           ...originalUserData, 
@@ -66,15 +66,46 @@ export default function UserProfileScreen() {
           dateOfBirth: apiUser.dateOfBirth || originalUserData.dateOfBirth || '',
           phone: apiUser.phone || originalUserData.phone || '',
         };
+        
         setUserData(mergedUser);
+        
+        // Update userEmail if it has changed
+        if (apiUser.email && apiUser.email !== userEmail) {
+          setUserEmail(apiUser.email);
+        }
       } else {
-        console.log('API failed, keeping original user data');
+        if (!skipErrorLog && emailToFetch !== originalUserData.email) {
+          fetchUserDataWithEmail(originalUserData.email, true);
+        }
       }
     } catch (error) {
-      console.error('Error fetching user data:', error);
-      console.log('Fetch failed, keeping original user data');
+      if (!skipErrorLog) {
+        console.error('Error fetching user data:', error);
+        if (emailToFetch !== originalUserData.email) {
+          fetchUserDataWithEmail(originalUserData.email, true);
+        }
+      }
     }
-  }, [userEmail, originalUserData]);
+  }, [originalUserData, userEmail]);
+
+  // Handle updated email from EditProfileScreen
+  useEffect(() => {
+    if (params.updatedEmail && 
+        params.updatedEmail !== userEmail && 
+        params.updatedEmail !== lastProcessedUpdatedEmail) {
+      console.log(`Email updated: ${userEmail} → ${params.updatedEmail}`);
+      setLastProcessedUpdatedEmail(params.updatedEmail as string);
+      setUserEmail(params.updatedEmail as string);
+      if (originalUserData) {
+        fetchUserDataWithEmail(params.updatedEmail as string);
+      }
+    }
+  }, [params.updatedEmail, userEmail, originalUserData, fetchUserDataWithEmail, lastProcessedUpdatedEmail]);
+
+  const fetchUserData = useCallback(async () => {
+    if (!userEmail || !originalUserData) return;
+    await fetchUserDataWithEmail(userEmail);
+  }, [userEmail, originalUserData, fetchUserDataWithEmail]);
 
   useEffect(() => {
     if (userEmail && originalUserData) {
@@ -82,13 +113,13 @@ export default function UserProfileScreen() {
     }
   }, [userEmail, originalUserData, fetchUserData]);
 
-  // Refresh data when screen comes into focus (e.g., after editing profile)
   useFocusEffect(
     useCallback(() => {
-      if (userEmail && originalUserData) {
-        fetchUserData();
+      // Only fetch on focus if it's not a recently updated email
+      if (userEmail && originalUserData && userEmail !== lastProcessedUpdatedEmail) {
+        fetchUserDataWithEmail(userEmail, true); 
       }
-    }, [fetchUserData, userEmail, originalUserData])
+    }, [userEmail, originalUserData, fetchUserDataWithEmail, lastProcessedUpdatedEmail])
   );
 
   const handleLogout = () => {

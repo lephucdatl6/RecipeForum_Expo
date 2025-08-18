@@ -29,6 +29,7 @@ export default function RootLayout() {
         <Stack.Screen name="screens/RecipesForumScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/PostDetailScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/CreatePostScreen" options={{ headerShown: false }} />
+        <Stack.Screen name="screens/EditPostScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/RecipesListScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/NotificationsScreen" options={{ headerShown: false }} />
         <Stack.Screen name="screens/ViewProfileScreen" options={{ headerShown: false }} />

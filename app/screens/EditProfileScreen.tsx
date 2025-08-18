@@ -107,23 +107,10 @@ export default function EditProfileScreen() {
             {
               text: 'OK',
               onPress: () => {
-                // Check source to determine where to navigate back to
-                if (params.source === 'UserProfileScreen') {
-                  // If coming from UserProfileScreen, just go back
-                  router.back();
-                } else {
-                  // If coming from ViewProfileScreen, replace with updated ViewProfileScreen
-                  router.back();
-                  setTimeout(() => {
-                    router.replace({
-                      pathname: './ViewProfileScreen',
-                      params: { 
-                        email: data.user.email,
-                        currentUserEmail: data.user.email
-                      }
-                    });
-                  }, 50);
-                }
+                router.back();
+                setTimeout(() => {
+                  router.setParams({ updatedEmail: data.user.email });
+                }, 100);
               }
             }
           ]

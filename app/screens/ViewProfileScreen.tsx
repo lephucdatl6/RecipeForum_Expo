@@ -162,12 +162,6 @@ export default function ViewProfileScreen() {
                 <Text style={styles.infoLabel}>Member Since:</Text>
                 <Text style={styles.infoValue}>{formatDate(userProfile.memberSince)}</Text>
               </View>
-
-              {isOwnProfile && (
-                <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
-                  <Text style={styles.editButtonText}>Edit Profile</Text>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
         </View>
@@ -292,18 +286,5 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     flex: 1,
     marginLeft: 10,
-  },
-  editButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  editButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

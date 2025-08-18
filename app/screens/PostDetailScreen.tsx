@@ -1,6 +1,6 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 
 interface Recipe {
@@ -15,6 +15,7 @@ interface Recipe {
   upvotes?: number;
   downvotes?: number;
   created_at: string;
+  updatedAt?: string | null;
 }
 
 interface UserData {
@@ -31,11 +32,17 @@ export default function PostDetailScreen() {
   const params = useLocalSearchParams();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [lastProcessedUpdatedEmail, setLastProcessedUpdatedEmail] = useState<string>('');
+  const [originalUserData, setOriginalUserData] = useState<UserData | null>(null);
 
   useEffect(() => {
     if (params.recipe) {
       try {
         const recipeData = JSON.parse(params.recipe as string);
+        if (recipeData._id && !recipeData.id) {
+          recipeData.id = recipeData._id;
+        }
         setRecipe(recipeData);
       } catch (error) {
         console.error('Error parsing recipe data:', error);
@@ -46,11 +53,98 @@ export default function PostDetailScreen() {
       try {
         const user = JSON.parse(params.userData as string);
         setUserData(user);
+        setOriginalUserData(user); // Store original data from login
       } catch (error) {
         console.error('Error parsing user data:', error);
       }
     }
   }, [params.recipe, params.userData]);
+
+  // Handle updated email from EditProfileScreen
+  useEffect(() => {
+    if (params.updatedEmail && 
+        params.updatedEmail !== userData?.email && 
+        params.updatedEmail !== lastProcessedUpdatedEmail) {
+      // console.log(`PostDetail - Email updated: ${userData?.email} → ${params.updatedEmail}`);
+      setLastProcessedUpdatedEmail(params.updatedEmail as string);
+      
+      if (originalUserData) {
+        const updatedUser = {
+          ...originalUserData,
+          email: params.updatedEmail as string
+        };
+        setUserData(updatedUser);
+      }
+    }
+  }, [params.updatedEmail, userData?.email, originalUserData, lastProcessedUpdatedEmail]);
+
+  // Function to refresh user data from API
+  const refreshUserData = useCallback(async () => {
+    if (userData?.email && originalUserData) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/users/profile/${userData.email}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const updatedUser: UserData = {
+            ...originalUserData,
+            username: data.user.username,
+            email: data.user.email,
+            points: data.user.points || originalUserData.points || 0,
+            dateOfBirth: data.user.dateOfBirth || originalUserData.dateOfBirth,
+            phone: data.user.phone || originalUserData.phone,
+          };
+          setUserData(updatedUser);
+        }
+      } catch (error) {
+        console.error('Error refreshing user data:', error);
+      }
+    }
+  }, [userData?.email, originalUserData]);
+
+  // Function to refresh recipe data from API
+  const refreshRecipeData = useCallback(async () => {
+    if (recipe?.id) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}`);
+        const data = await response.json();
+        
+        if (data.success && data.recipe) {
+          const updatedRecipe: Recipe = {
+            id: data.recipe._id,
+            title: data.recipe.title,
+            description: data.recipe.description,
+            cookingTime: data.recipe.cookingTime.toString(),
+            category: data.recipe.category,
+            difficulty: data.recipe.difficulty,
+            author: data.recipe.author,
+            authorEmail: data.recipe.authorEmail,
+            upvotes: data.recipe.upvotes || 0,
+            downvotes: data.recipe.downvotes || 0,
+            created_at: data.recipe.createdAt,
+            updatedAt: data.recipe.updatedAt
+          };
+          setRecipe(updatedRecipe);
+        }
+      } catch (error) {
+        console.error('Error refreshing recipe data:', error);
+      }
+    }
+  }, [recipe?.id]);
+
+  // Refresh data when screen comes into focus (e.g., after editing)
+  useFocusEffect(
+    useCallback(() => {
+      const timeoutId = setTimeout(() => {
+        refreshRecipeData();
+        if (userData?.email !== lastProcessedUpdatedEmail) {
+          refreshUserData();
+        }
+      }, 200);
+      
+      return () => clearTimeout(timeoutId);
+    }, [refreshRecipeData, refreshUserData, userData?.email, lastProcessedUpdatedEmail])
+  );
 
   const handleBack = () => {
     router.back();
@@ -62,7 +156,7 @@ export default function PostDetailScreen() {
         pathname: './ViewProfileScreen',
         params: { 
           email: recipe.authorEmail,
-          currentUserEmail: userData?.email || '' // Pass current user's email
+          currentUserEmail: userData?.email || ''
         }
       });
     }
@@ -94,6 +188,21 @@ export default function PostDetailScreen() {
     } catch {
       return 'Unknown date';
     }
+  };
+
+  const getLastModifiedText = (recipe: Recipe) => {
+    if (recipe.updatedAt) {
+      return {
+        label: '✏️ Last edited:',
+        value: formatDate(recipe.updatedAt),
+        isEdited: true
+      };
+    }
+    return {
+      label: '📅 Posted:',
+      value: formatDate(recipe.created_at),
+      isEdited: false
+    };
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -157,6 +266,23 @@ export default function PostDetailScreen() {
     );
   };
 
+  const handleEdit = () => {
+    setShowMoreOptions(false); // Close the options menu
+    if (recipe && userData) {
+      router.push({
+        pathname: './EditPostScreen',
+        params: {
+          recipe: JSON.stringify(recipe),
+          userData: JSON.stringify(userData)
+        }
+      });
+    }
+  };
+
+  const handleMoreOptions = () => {
+    setShowMoreOptions(true);
+  };
+
   // Check if current user is the owner of the post
   const isOwner = userData && recipe && userData.email === recipe.authorEmail;
 
@@ -198,8 +324,8 @@ export default function PostDetailScreen() {
             <View style={styles.titleRow}>
               <Text style={styles.recipeTitle}>{recipe.title}</Text>
               {isOwner && (
-                <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-                  <Text style={styles.deleteButtonText}>🗑️</Text>
+                <TouchableOpacity style={styles.moreOptionsButton} onPress={handleMoreOptions}>
+                  <Text style={styles.moreOptionsButtonText}>⋯</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -228,8 +354,13 @@ export default function PostDetailScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>📅 Posted:</Text>
-              <Text style={styles.metaValue}>{formatDate(recipe.created_at)}</Text>
+              <Text style={styles.metaLabel}>{getLastModifiedText(recipe).label}</Text>
+              <Text style={[
+                styles.metaValue, 
+                getLastModifiedText(recipe).isEdited && styles.editedText
+              ]}>
+                {getLastModifiedText(recipe).value}
+              </Text>
             </View>
           </View>
 
@@ -240,6 +371,41 @@ export default function PostDetailScreen() {
         </View>
       </ScrollView>
     </View>
+
+    {/* More Options Modal */}
+    <Modal
+      transparent={true}
+      visible={showMoreOptions}
+      animationType="fade"
+      onRequestClose={() => setShowMoreOptions(false)}
+    >
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={() => setShowMoreOptions(false)}
+      >
+        <View style={styles.modalContent}>
+          <TouchableOpacity
+            style={styles.optionButton}
+            onPress={handleEdit}
+          >
+            <Text style={styles.optionText}>Edit post</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.optionSeparator} />
+          
+          <TouchableOpacity
+            style={styles.optionButton}
+            onPress={() => {
+              setShowMoreOptions(false);
+              handleDelete();
+            }}
+          >
+            <Text style={[styles.optionText, styles.deleteText]}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
     </>
   );
 }
@@ -311,15 +477,56 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
   },
-  deleteButton: {
+  moreOptionsButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: '#FF5630',
+    backgroundColor: '#e0e0e0',
     marginLeft: 10,
   },
-  deleteButtonText: {
+  moreOptionsButtonText: {
     fontSize: 18,
-    color: '#f44336',
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 120, // Position below header
+    paddingRight: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    paddingVertical: 8,
+    minWidth: 140,
+    maxWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  optionButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  optionSeparator: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: 8,
+  },
+  optionText: {
+    fontSize: 15,
+    color: '#000',
+    fontWeight: '400',
+  },
+  deleteText: {
+    color: '#ff4444',
   },
   categoryBadge: {
     backgroundColor: '#ff8c00',
@@ -358,6 +565,10 @@ const styles = StyleSheet.create({
   authorName: {
     color: '#333333',
     textDecorationLine: 'underline',
+  },
+  editedText: {
+    color: '#ff8c00',
+    fontStyle: 'italic',
   },
   difficultyValue: {
     fontWeight: 'bold',

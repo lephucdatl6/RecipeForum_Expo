@@ -79,11 +79,11 @@ const recipeSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  },
   deletedAt: {
+    type: Date,
+    default: null
+  },
+  updatedAt: {
     type: Date,
     default: null
   }
@@ -413,6 +413,63 @@ app.post('/api/recipes', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to post recipe',
+      details: error.message 
+    });
+  }
+});
+
+// Update a recipe
+app.put('/api/recipes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      description,
+      cookingTime,
+      difficulty,
+      category
+    } = req.body;
+
+    // Validate required fields
+    if (!title || !description || !cookingTime || !category) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required fields: title, description, cookingTime, category' 
+      });
+    }
+
+    // Find and update the recipe
+    const updatedRecipe = await Recipe.findByIdAndUpdate(
+      id,
+      {
+        title,
+        description,
+        cookingTime,
+        difficulty: difficulty || 'Easy',
+        category,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedRecipe) {
+      return res.status(404).json({
+        success: false,
+        error: 'Recipe not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Recipe updated successfully!',
+      recipe: updatedRecipe
+    });
+
+  } catch (error) {
+    console.error('Error updating recipe:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update recipe',
       details: error.message 
     });
   }
