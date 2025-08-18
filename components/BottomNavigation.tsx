@@ -42,7 +42,7 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
         break;
       case 'profile':
         router.replace({
-          pathname: './MainScreen',
+          pathname: './UserProfileScreen',
           params: navigationParams
         });
         break;

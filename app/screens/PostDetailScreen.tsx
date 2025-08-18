@@ -59,8 +59,11 @@ export default function PostDetailScreen() {
   const handleViewAuthorProfile = () => {
     if (recipe?.authorEmail) {
       router.push({
-        pathname: './UserProfileScreen',
-        params: { email: recipe.authorEmail }
+        pathname: './ViewProfileScreen',
+        params: { 
+          email: recipe.authorEmail,
+          currentUserEmail: userData?.email || '' // Pass current user's email
+        }
       });
     }
   };

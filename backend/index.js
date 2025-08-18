@@ -106,7 +106,7 @@ app.get('/api/users/profile/:email', async (req, res) => {
   try {
     const { email } = req.params;
     const result = await pool.query(
-      'SELECT username, email, point, created_at FROM users WHERE email = $1',
+      'SELECT username, email, dob, phone, point, created_at FROM users WHERE email = $1',
       [email]
     );
     
@@ -123,6 +123,8 @@ app.get('/api/users/profile/:email', async (req, res) => {
       user: {
         username: user.username,
         email: user.email,
+        dateOfBirth: user.dob,
+        phone: user.phone,
         points: user.point,
         memberSince: user.created_at
       }
@@ -132,6 +134,77 @@ app.get('/api/users/profile/:email', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to fetch user profile' 
+    });
+  }
+});
+
+// Update user profile
+app.put('/api/users/profile/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { username, newEmail } = req.body;
+
+    // Validate input
+    if (!username || !newEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and email are required'
+      });
+    }
+
+    // Check if the new email is already taken by another user
+    if (newEmail !== email) {
+      const existingUser = await pool.query(
+        'SELECT * FROM users WHERE email = $1 AND email != $2',
+        [newEmail, email]
+      );
+      
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is already taken by another user'
+        });
+      }
+    }
+
+    // Update user profile
+    const result = await pool.query(
+      'UPDATE users SET username = $1, email = $2 WHERE email = $3 RETURNING username, email, point, created_at',
+      [username, newEmail, email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const updatedUser = result.rows[0];
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        username: updatedUser.username,
+        email: updatedUser.email,
+        points: updatedUser.point,
+        memberSince: updatedUser.created_at
+      }
+    });
+  } catch (err) {
+    console.error('Error updating user profile:', err);
+    
+    // Handle database constraint violations
+    if (err.code === '23505' && err.constraint === 'users_email_key') {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already taken by another user'
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update user profile' 
     });
   }
 });

@@ -1,157 +1,228 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 
-interface UserProfile {
+interface UserData {
+  user_id: number;
   username: string;
   email: string;
+  dateOfBirth: string;
+  phone: string;
   points: number;
-  memberSince: string;
+  created_at?: string;
 }
 
 export default function UserProfileScreen() {
   const params = useLocalSearchParams();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState<string>('');
+  const [originalUserData, setOriginalUserData] = useState<UserData | null>(null);
 
+  // Initialize user data from params on first load
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!params.email) {
-        setError('No user email provided');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/users/profile/${params.email}`);
-        const data = await response.json();
-
-        if (data.success) {
-          setUserProfile(data.user);
-        } else {
-          setError(data.message || 'Failed to load user profile');
+    const initializeUserData = () => {
+      if (params.userData) {
+        try {
+          const user = JSON.parse(params.userData as string);
+          setUserEmail(user.email);
+          setOriginalUserData(user); // Store original data from login
+          setUserData(user);
+          setIsLoading(false);
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+          Alert.alert('Error', 'Failed to load user data. Please login again.', [
+            {
+              text: 'OK',
+              onPress: () => router.replace('./LoginScreen')
+            }
+          ]);
+          setIsLoading(false);
         }
-      } catch (err) {
-        console.error('Error fetching user profile:', err);
-        setError('Failed to load user profile');
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchUserProfile();
-  }, [params.email]);
+    initializeUserData();
+  }, [params.userData]);
 
-  const handleBack = () => {
-    router.back();
+  // Fetch fresh user data from API and merge with original data
+  const fetchUserData = useCallback(async () => {
+    if (!userEmail || !originalUserData) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/profile/${userEmail}`);
+      const data = await response.json();
+
+      if (data.success) {
+        // Merge API data with original login data, prioritizing API for updatable fields
+        const apiUser = data.user;
+        const mergedUser: UserData = {
+          ...originalUserData, 
+          username: apiUser.username || originalUserData.username, 
+          email: apiUser.email || originalUserData.email, 
+          points: apiUser.points || originalUserData.points || 0, 
+          dateOfBirth: apiUser.dateOfBirth || originalUserData.dateOfBirth || '',
+          phone: apiUser.phone || originalUserData.phone || '',
+        };
+        setUserData(mergedUser);
+      } else {
+        console.log('API failed, keeping original user data');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      console.log('Fetch failed, keeping original user data');
+    }
+  }, [userEmail, originalUserData]);
+
+  useEffect(() => {
+    if (userEmail && originalUserData) {
+      fetchUserData();
+    }
+  }, [userEmail, originalUserData, fetchUserData]);
+
+  // Refresh data when screen comes into focus (e.g., after editing profile)
+  useFocusEffect(
+    useCallback(() => {
+      if (userEmail && originalUserData) {
+        fetchUserData();
+      }
+    }, [fetchUserData, userEmail, originalUserData])
+  );
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Logout', 
+          style: 'destructive',
+          onPress: () => router.replace('./LoginScreen')
+        }
+      ]
+    );
+  };
+
+  const handleEditProfile = () => {
+    if (userData?.email) {
+      router.push({
+        pathname: './EditProfileScreen',
+        params: { 
+          email: userData.email,
+          source: 'UserProfileScreen'
+        }
+      });
+    }
   };
 
   const formatDate = (dateString: string) => {
     try {
-      if (!dateString) return 'Unknown';
+      if (!dateString || dateString.trim() === '') {
+        return 'Not provided';
+      }
       
       const date = new Date(dateString);
       
+      // Check if the date is valid
       if (isNaN(date.getTime())) {
-        return 'Unknown';
+        return 'Not provided';
       }
       
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
+      // Format as DD-MM-YYYY
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
     } catch {
-      return 'Unknown';
+      return 'Not provided';
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-              <Text style={styles.backButtonText}>← Back</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>User Profile</Text>
-            <View style={styles.placeholder} />
-          </View>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.loadingText}>Loading profile...</Text>
-          </View>
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
-      </>
+        <BottomNavigation activeTab="profile" userData={userData} />
+      </View>
     );
   }
 
-  if (error || !userProfile) {
+  if (!userData) {
     return (
-      <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-              <Text style={styles.backButtonText}>← Back</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>User Profile</Text>
-            <View style={styles.placeholder} />
-          </View>
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error || 'User not found'}</Text>
-          </View>
-        </View>
-      </>
+      <View style={styles.container}>
+        <Text style={styles.errorText}>No user data available</Text>
+        <TouchableOpacity 
+          style={styles.button} 
+          onPress={() => router.replace('./LoginScreen')}
+        >
+          <Text style={styles.buttonText}>Go to Login</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.container}>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>User Profile</Text>
-          <View style={styles.placeholder} />
-        </View>
-
-        <View style={styles.contentContainer}>
-          <View style={styles.profileCard}>
-            <View style={styles.profileHeader}>
-              <View style={styles.avatarContainer}>
-                <Text style={styles.avatarText}>
-                  {userProfile.username.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-              <Text style={styles.username}>{userProfile.username}</Text>
-            </View>
-
-            <View style={styles.profileInfo}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Email:</Text>
-                <Text style={styles.infoValue}>{userProfile.email}</Text>
-              </View>
-
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Points:</Text>
-                <Text style={styles.infoValue}>{userProfile.points}</Text>
-              </View>
-
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Member Since:</Text>
-                <Text style={styles.infoValue}>{formatDate(userProfile.memberSince)}</Text>
-              </View>
-            </View>
+          <Text style={styles.title}>Profile</Text>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
+              <Text style={styles.editButtonText}>Edit Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </>
+
+        <View style={styles.userCard}>
+          <Text style={styles.welcomeText}>Welcome back!</Text>
+          
+          <View style={styles.userInfo}>
+            <Text style={styles.userInfoTitle}>User Information</Text>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Username:</Text>
+              <Text style={styles.infoValue}>{userData.username}</Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Email:</Text>
+              <Text style={styles.infoValue}>{userData.email}</Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Date of Birth:</Text>
+              <Text style={styles.infoValue}>{formatDate(userData.dateOfBirth)}</Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Phone:</Text>
+              <Text style={styles.infoValue}>{userData.phone}</Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Points:</Text>
+              <Text style={[styles.infoValue, styles.pointsValue]}>{userData.points}</Text>
+            </View>
+            
+            {userData.created_at && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Member since:</Text>
+                <Text style={styles.infoValue}>{formatDate(userData.created_at)}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </ScrollView>
+      <BottomNavigation activeTab="profile" userData={userData} />
+    </View>
   );
 }
 
@@ -160,62 +231,56 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
+    marginBottom: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
   },
-  placeholder: {
-    width: 60,
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  editButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 5,
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
+  editButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  logoutButton: {
+    backgroundColor: '#ff4444',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 5,
   },
-  errorText: {
-    fontSize: 18,
-    color: '#666',
-    textAlign: 'center',
+  logoutButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
-  contentContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  profileCard: {
+  userCard: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 10,
     padding: 20,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -225,37 +290,30 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  profileHeader: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  username: {
-    fontSize: 24,
+  welcomeText: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 15,
+    textAlign: 'center',
   },
-  profileInfo: {
-    gap: 20,
+  userInfo: {
+    marginTop: 10,
   },
-  infoItem: {
+  userInfoTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingBottom: 5,
+  },
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -263,13 +321,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     fontWeight: '500',
+    flex: 1,
   },
   infoValue: {
     fontSize: 16,
     color: '#333',
     fontWeight: '600',
+    flex: 2,
     textAlign: 'right',
+  },
+  pointsValue: {
+    color: '#28a745',
+    fontSize: 18,
+  },
+  loadingContainer: {
     flex: 1,
-    marginLeft: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  errorText: {
+    color: '#ff4444',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 50,
+  },
+  button: {
+    backgroundColor: '#ff8c00',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });

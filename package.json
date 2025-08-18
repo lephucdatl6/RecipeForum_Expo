@@ -23,7 +23,7 @@
     "@react-navigation/stack": "^7.4.2",
     "axios": "^1.10.0",
     "dotenv": "^17.2.0",
-    "expo": "^53.0.20",
+    "expo": "54",
     "expo-blur": "~14.1.5",
     "expo-constants": "~17.1.7",
     "expo-font": "~13.3.2",
