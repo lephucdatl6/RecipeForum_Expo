@@ -109,19 +109,34 @@ ensureCreatedAtColumn();
 // Authentication routes
 // Signup route
 app.post('/api/auth/signup', async (req, res) => {
-  const { username, email, password, dateOfBirth, phone, points = 0 } = req.body;
+  const { username, email, password, dateOfBirth, phone, points = 0, confirmDuplicateUsername = false } = req.body;
   
   try {
-    // Check if user already exists
-    const existingUser = await pool.query(
-      'SELECT * FROM users WHERE username = $1 OR email = $2',
-      [username, email]
+    // Check if email already exists (email must be unique per database constraint)
+    const existingEmail = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
     );
     
-    if (existingUser.rows.length > 0) {
+    if (existingEmail.rows.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Username or email already exists'
+        message: 'Email already exists. Please use a different email address.'
+      });
+    }
+
+    // Check if username already exists (username can be duplicate but warn user)
+    const existingUsername = await pool.query(
+      'SELECT * FROM users WHERE username = $1',
+      [username]
+    );
+    
+    if (existingUsername.rows.length > 0 && !confirmDuplicateUsername) {
+      return res.status(409).json({
+        success: false,
+        message: 'Username already exists. Are you sure you want to use this username?',
+        type: 'username_exists',
+        requireConfirmation: true
       });
     }
     
@@ -129,7 +144,7 @@ app.post('/api/auth/signup', async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
     
-    // Insert new user
+    // Insert new user (database will enforce email uniqueness)
     const result = await pool.query(
       'INSERT INTO users (username, email, password, dob, phone, point, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING user_id, username, email, dob, phone, point, created_at',
       [username, email, hashedPassword, dateOfBirth, phone, points]
@@ -155,6 +170,15 @@ app.post('/api/auth/signup', async (req, res) => {
     });
   } catch (err) {
     console.error('Signup error:', err);
+    
+    // Handle database constraint violations
+    if (err.code === '23505' && err.constraint === 'users_email_key') {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists. Please use a different email address.'
+      });
+    }
+    
     res.status(500).json({ 
       success: false,
       message: 'Internal server error'

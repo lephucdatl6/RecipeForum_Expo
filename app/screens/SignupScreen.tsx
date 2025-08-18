@@ -148,7 +148,7 @@ export default function SignupScreen() {
     return true;
   };
 
-  const handleSignup = async () => {
+  const handleSignup = async (confirmDuplicateUsername = false) => {
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -159,7 +159,8 @@ export default function SignupScreen() {
         password: password.trim(),
         dateOfBirth: convertDateForBackend(dateOfBirth.trim()),
         phone: phone.replace(/\s/g, ''),
-        points: 0 
+        points: 0,
+        confirmDuplicateUsername
       });
 
       if (response.data.success) {
@@ -172,7 +173,25 @@ export default function SignupScreen() {
         setError(response.data.message || 'Signup failed');
       }
     } catch (err: any) {
-      if (err.response && err.response.data && err.response.data.message) {
+      if (err.response && err.response.status === 409 && err.response.data.type === 'username_exists') {
+        // Username already exists - show confirmation dialog
+        Alert.alert(
+          'Username Already Exists',
+          `The username "${username}" is already taken. Are you sure you want to use this username? Other users will have the same username.`,
+          [
+            {
+              text: 'Choose Different Username',
+              style: 'cancel',
+              onPress: () => setIsLoading(false)
+            },
+            {
+              text: 'Yes, Use This Username',
+              onPress: () => handleSignup(true) // Retry with confirmation
+            }
+          ]
+        );
+        return; // Don't set isLoading to false here, it will be handled in the alert actions
+      } else if (err.response && err.response.data && err.response.data.message) {
         setError(err.response.data.message);
       } else if (err.message) {
         setError(err.message);
@@ -277,7 +296,7 @@ export default function SignupScreen() {
       
       <TouchableOpacity 
         style={[styles.button, isLoading && styles.buttonDisabled]} 
-        onPress={handleSignup}
+        onPress={() => handleSignup()}
         disabled={isLoading}
       >
         <Text style={styles.buttonText}>
