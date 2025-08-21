@@ -180,6 +180,31 @@ app.put('/api/users/profile/:email', async (req, res) => {
       });
     }
 
+    // If email changed, update all MongoDB recipes with the new authorEmail
+    if (newEmail !== email) {
+      try {
+        const mongoUpdateResult = await Recipe.updateMany(
+          { authorEmail: email },
+          { 
+            authorEmail: newEmail,
+            author: username 
+          }
+        );
+      } catch (mongoErr) {
+        console.error('Error updating MongoDB recipes:', mongoErr);
+      }
+    } else if (username) {
+      // If only username changed, update just the author field
+      try {
+        const mongoUpdateResult = await Recipe.updateMany(
+          { authorEmail: email },
+          { author: username }
+        );
+      } catch (mongoErr) {
+        console.error('❌ Error updating MongoDB recipes username:', mongoErr);
+      }
+    }
+
     const updatedUser = result.rows[0];
     res.json({
       success: true,
@@ -216,7 +241,6 @@ async function ensureCreatedAtColumn() {
       ALTER TABLE users 
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()
     `);
-    // console.log('Ensured created_at column exists');
   } catch (err) {
     console.error('Error adding created_at column:', err.message);
   }
@@ -351,16 +375,6 @@ app.post('/api/auth/login', async (req, res) => {
       success: false,
       message: 'Internal server error'
     });
-  }
-});
-
-// Debug route to check current database
-app.get('/api/debug-db', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT current_database()');
-    res.json({ database: result.rows[0].current_database });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
 });
 
