@@ -43,8 +43,8 @@ export default function RecipesForumScreen() {
   const sortOptions = [
     { key: 'newest', label: 'Newest' },
     { key: 'oldest', label: 'Oldest' },
-    { key: 'most_upvoted', label: 'Most Upvoted' },
-    { key: 'most_downvoted', label: 'Most Downvoted' },
+    { key: 'most_upvoted', label: 'Upvoted' },
+    { key: 'most_downvoted', label: 'Downvoted' },
   ];
 
   useEffect(() => {
@@ -458,12 +458,12 @@ export default function RecipesForumScreen() {
   return (
     <TouchableWithoutFeedback onPress={dismissKeyboard}>
       <View style={styles.container}>
-        {/* Search Bar moved to header position */}
+        {/* Search Bar with Sort Button */}
         <View style={styles.searchContainer}>
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Search recipes, authors, or descriptions..."
+            placeholder="Search"
             value={searchQuery}
             onChangeText={handleSearch}
             placeholderTextColor="#999"
@@ -476,20 +476,18 @@ export default function RecipesForumScreen() {
               <Text style={styles.clearButtonText}>✕</Text>
             </TouchableOpacity>
           )}
+          
+          {/* Sort Button on the right */}
+          <TouchableOpacity 
+            style={styles.sortButtonInline}
+            onPress={() => setShowSortDropdown(!showSortDropdown)}
+          >
+            <Text style={styles.sortButtonTextInline}>
+              {sortOptions.find(option => option.key === sortBy)?.label}
+            </Text>
+            <Text style={styles.sortArrowInline}>{showSortDropdown ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
         </View>
-
-      {/* Sort Dropdown */}
-      <View style={styles.sortContainer}>
-        <Text style={styles.sortLabel}>Sort by</Text>
-        <TouchableOpacity 
-          style={styles.sortButton}
-          onPress={() => setShowSortDropdown(!showSortDropdown)}
-        >
-          <Text style={styles.sortButtonText}>
-            {sortOptions.find(option => option.key === sortBy)?.label}
-          </Text>
-          <Text style={styles.sortArrow}>{showSortDropdown ? '▲' : '▼'}</Text>
-        </TouchableOpacity>
         
         {showSortDropdown && (
           <Modal
@@ -528,35 +526,34 @@ export default function RecipesForumScreen() {
             </TouchableOpacity>
           </Modal>
         )}
-      </View>
 
-      {/* Results count */}
-      {searchQuery.length > 0 && (
-        <View style={styles.resultsContainer}>
-          <Text style={styles.resultsText}>
-            {filteredRecipes.length} result{filteredRecipes.length !== 1 ? 's' : ''} found
-          </Text>
-        </View>
-      )}
+        {/* Results count */}
+        {searchQuery.length > 0 && (
+          <View style={styles.resultsContainer}>
+            <Text style={styles.resultsText}>
+              {filteredRecipes.length} result{filteredRecipes.length !== 1 ? 's' : ''} found
+            </Text>
+          </View>
+        )}
 
-      <FlatList
-        data={filteredRecipes}
-        renderItem={renderRecipeCard}
-        keyExtractor={(item, index) => item.id ? item.id.toString() : `recipe-${index}`}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={loadRecipes} />
-        }
-        ListEmptyComponent={!isLoading ? renderEmptyState : null}
-      />
+        <FlatList
+          data={filteredRecipes}
+          renderItem={renderRecipeCard}
+          keyExtractor={(item, index) => item.id ? item.id.toString() : `recipe-${index}`}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isLoading} onRefresh={loadRecipes} />
+          }
+          ListEmptyComponent={!isLoading ? renderEmptyState : null}
+        />
 
-      {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab} onPress={handleCreatePost}>
-        <Text style={styles.fabText}>➕</Text>
-      </TouchableOpacity>
+        {/* Floating Action Button */}
+        <TouchableOpacity style={styles.fab} onPress={handleCreatePost}>
+          <Text style={styles.fabText}>➕</Text>
+        </TouchableOpacity>
 
-      <BottomNavigation activeTab="forum" userData={userData} />
+        <BottomNavigation activeTab="forum" userData={userData} />
       </View>
     </TouchableWithoutFeedback>
   );
@@ -602,23 +599,47 @@ const styles = StyleSheet.create({
     color: '#333',
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    marginRight: 10, 
   },
   clearButton: {
     position: 'absolute',
-    right: 30,
+    right: 140,
     top: '50%',
     marginTop: 45,
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#ccc',
+    backgroundColor: '#999',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1, 
   },
   clearButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#fff',
     fontWeight: 'bold',
+    lineHeight: 18, 
+  },
+  sortButtonInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff8c00',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    height: 40,
+    width: 100, 
+    justifyContent: 'center', 
+  },
+  sortButtonTextInline: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '500',
+    marginRight: 4,
+  },
+  sortArrowInline: {
+    fontSize: 10,
+    color: '#ffffff',
   },
   resultsContainer: {
     backgroundColor: '#ffffff',
@@ -852,8 +873,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
-    marginHorizontal: 20,
-    maxWidth: 300,
+    minWidth: 180,
+    maxWidth: 200,
   },
   sortOption: {
     paddingHorizontal: 16,
@@ -876,7 +897,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingTop: 200, // Position below header and search
+    alignItems: 'flex-end',
+    paddingTop: 110,
+    paddingRight: 10, 
   },
 });
