@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, FlatList, Keyboard, Modal, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 
@@ -36,6 +36,16 @@ export default function RecipesForumScreen() {
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'most_upvoted' | 'most_downvoted'>('newest');
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const searchInputRef = useRef<TextInput>(null);
+
+  const sortOptions = [
+    { key: 'newest', label: 'Newest' },
+    { key: 'oldest', label: 'Oldest' },
+    { key: 'most_upvoted', label: 'Most Upvoted' },
+    { key: 'most_downvoted', label: 'Most Downvoted' },
+  ];
 
   useEffect(() => {
     if (params.userData) {
@@ -66,14 +76,38 @@ export default function RecipesForumScreen() {
     );
   }, []);
 
-  // Update filtered recipes when search query or recipes change
+  // Sort recipes based on selected option
+  const sortRecipes = useCallback((recipeList: Recipe[], sortOption: string) => {
+    const sorted = [...recipeList];
+    
+    switch (sortOption) {
+      case 'newest':
+        return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      case 'oldest':
+        return sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      case 'most_upvoted':
+        return sorted.sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
+      case 'most_downvoted':
+        return sorted.sort((a, b) => (b.downvotes || 0) - (a.downvotes || 0));
+      default:
+        return sorted;
+    }
+  }, []);
+
+  // Update filtered recipes when search query, recipes, or sort option changes
   useEffect(() => {
     const filtered = filterRecipes(searchQuery, recipes);
-    setFilteredRecipes(filtered);
-  }, [searchQuery, recipes, filterRecipes]);
+    const sorted = sortRecipes(filtered, sortBy);
+    setFilteredRecipes(sorted);
+  }, [searchQuery, recipes, sortBy, filterRecipes, sortRecipes]);
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
+  };
+
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+    searchInputRef.current?.blur();
   };
 
   // Reload recipes when screen comes into focus
@@ -368,6 +402,9 @@ export default function RecipesForumScreen() {
         </View>
       </TouchableOpacity>
       
+      {/* Spacing between card content and voting section */}
+      <View style={{ height: 20 }} />
+      
       {/* Voting Section */}
       <View style={styles.votingSection}>
         <TouchableOpacity 
@@ -419,27 +456,77 @@ export default function RecipesForumScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Recipes Forum</Text>
-      </View>
+    <TouchableWithoutFeedback onPress={dismissKeyboard}>
+      <View style={styles.container}>
+        {/* Search Bar moved to header position */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            ref={searchInputRef}
+            style={styles.searchInput}
+            placeholder="Search recipes, authors, or descriptions..."
+            value={searchQuery}
+            onChangeText={handleSearch}
+            placeholderTextColor="#999"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity 
+              style={styles.clearButton} 
+              onPress={() => setSearchQuery('')}
+            >
+              <Text style={styles.clearButtonText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search recipes, authors, or descriptions..."
-          value={searchQuery}
-          onChangeText={handleSearch}
-          placeholderTextColor="#999"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity 
-            style={styles.clearButton} 
-            onPress={() => setSearchQuery('')}
+      {/* Sort Dropdown */}
+      <View style={styles.sortContainer}>
+        <Text style={styles.sortLabel}>Sort by</Text>
+        <TouchableOpacity 
+          style={styles.sortButton}
+          onPress={() => setShowSortDropdown(!showSortDropdown)}
+        >
+          <Text style={styles.sortButtonText}>
+            {sortOptions.find(option => option.key === sortBy)?.label}
+          </Text>
+          <Text style={styles.sortArrow}>{showSortDropdown ? '▲' : '▼'}</Text>
+        </TouchableOpacity>
+        
+        {showSortDropdown && (
+          <Modal
+            transparent={true}
+            visible={showSortDropdown}
+            animationType="fade"
+            onRequestClose={() => setShowSortDropdown(false)}
           >
-            <Text style={styles.clearButtonText}>✕</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setShowSortDropdown(false)}
+            >
+              <View style={styles.sortDropdown}>
+                {sortOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={[
+                      styles.sortOption,
+                      sortBy === option.key && styles.sortOptionActive
+                    ]}
+                    onPress={() => {
+                      setSortBy(option.key as any);
+                      setShowSortDropdown(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.sortOptionText,
+                      sortBy === option.key && styles.sortOptionTextActive
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
         )}
       </View>
 
@@ -470,7 +557,8 @@ export default function RecipesForumScreen() {
       </TouchableOpacity>
 
       <BottomNavigation activeTab="forum" userData={userData} />
-    </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -497,7 +585,8 @@ const styles = StyleSheet.create({
   searchContainer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingTop: 60,
+    paddingBottom: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
     flexDirection: 'row',
@@ -517,6 +606,8 @@ const styles = StyleSheet.create({
   clearButton: {
     position: 'absolute',
     right: 30,
+    top: '50%',
+    marginTop: 45,
     width: 30,
     height: 30,
     borderRadius: 15,
@@ -666,22 +757,27 @@ const styles = StyleSheet.create({
   votingSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     paddingTop: 8,
     paddingBottom: 5,
     paddingHorizontal: 15,
-    borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     backgroundColor: '#fafafa',
+    marginTop: 8,
+    borderRadius: 20,
+    width: 110,
+    height: 40,                  
+    alignSelf: 'flex-start',     
   },
   voteButton: {
     alignItems: 'center',
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,        
     borderRadius: 15,
     backgroundColor: '#f8f8f8',
-    minWidth: 35,
+    minWidth: 30,                
     justifyContent: 'center',
+    marginHorizontal: 2,         
   },
   voteButtonActive: {
     backgroundColor: '#ff8c00',
@@ -696,15 +792,91 @@ const styles = StyleSheet.create({
   },
   netVotes: {
     paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,        
     backgroundColor: '#e8f4f8',
     borderRadius: 12,
-    minWidth: 35,
+    minWidth: 30,                
     alignItems: 'center',
+    marginHorizontal: 2,         
   },
   netVotesText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: '#333',
+  },
+  sortContainer: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    position: 'relative',
+  },
+  sortLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  sortButtonText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  sortArrow: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
+  },
+  sortDropdown: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    marginHorizontal: 20,
+    maxWidth: 300,
+  },
+  sortOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  sortOptionActive: {
+    backgroundColor: '#f0f8ff',
+  },
+  sortOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  sortOptionTextActive: {
+    color: '#ff8c00',
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop: 200, // Position below header and search
   },
 });
