@@ -93,7 +93,7 @@ export default function UserProfileScreen() {
     if (params.updatedEmail && 
         params.updatedEmail !== userEmail && 
         params.updatedEmail !== lastProcessedUpdatedEmail) {
-      console.log(`Email updated: ${userEmail} → ${params.updatedEmail}`);
+    //   console.log(`Email updated: ${userEmail} → ${params.updatedEmail}`);
       setLastProcessedUpdatedEmail(params.updatedEmail as string);
       setUserEmail(params.updatedEmail as string);
       if (originalUserData) {

@@ -98,6 +98,33 @@ const recipeSchema = new mongoose.Schema({
 
 const Recipe = mongoose.model('Recipe', recipeSchema);
 
+// Migration function to ensure all recipes have votedUsers field
+async function ensureVotedUsersField() {
+  try {
+    const result = await Recipe.updateMany(
+      { votedUsers: { $exists: false } },
+      { 
+        $set: { 
+          votedUsers: [],
+          upvotes: 0,
+          downvotes: 0
+        }
+      }
+    );
+    
+    if (result.modifiedCount > 0) {
+      console.log(`✅ Added votedUsers field to ${result.modifiedCount} recipes`);
+    }
+  } catch (error) {
+    console.error('❌ Error in votedUsers migration:', error);
+  }
+}
+
+// Run migration when server starts
+mongoose.connection.once('open', () => {
+  ensureVotedUsersField();
+});
+
 // Route to get all users
 app.get('/api/users', async (req, res) => {
   try {
@@ -190,6 +217,7 @@ app.put('/api/users/profile/:email', async (req, res) => {
     // If email changed, update all MongoDB recipes with the new authorEmail
     if (newEmail !== email) {
       try {
+        // Update authorEmail for recipes they own
         const mongoUpdateResult = await Recipe.updateMany(
           { authorEmail: email },
           { 
@@ -197,6 +225,35 @@ app.put('/api/users/profile/:email', async (req, res) => {
             author: username 
           }
         );
+
+        // Update votedUsers array for recipes they've voted on
+        // First update using positional operator $ for recipes where user has voted
+        const voteUpdateResult = await Recipe.updateMany(
+          { "votedUsers.email": email },
+          { 
+            $set: { "votedUsers.$.email": newEmail }
+          }
+        );
+
+        // Handle potential edge case where user has multiple votes
+        // Only update recipes that actually have votedUsers field
+        await Recipe.updateMany(
+          { 
+            votedUsers: { $exists: true },
+            "votedUsers.email": email 
+          },
+          {
+            $set: {
+              "votedUsers.$[elem].email": newEmail
+            }
+          },
+          {
+            arrayFilters: [{ "elem.email": email }]
+          }
+        );
+
+        // console.log(`Updated authorEmail in ${mongoUpdateResult.modifiedCount} recipes`);
+        // console.log(`Updated votedUsers email in ${voteUpdateResult.modifiedCount} recipes`);
       } catch (mongoErr) {
         console.error('Error updating MongoDB recipes:', mongoErr);
       }
@@ -572,17 +629,49 @@ app.post('/api/recipes/:id/vote', async (req, res) => {
     const existingVoteIndex = recipe.votedUsers.findIndex(vote => vote.email === userEmail);
     const existingVote = existingVoteIndex !== -1 ? recipe.votedUsers[existingVoteIndex] : null;
 
+    // Clean up any duplicate votes for this user (security fix for email change exploit)
+    const allUserVotes = recipe.votedUsers.filter(vote => vote.email === userEmail);
+    if (allUserVotes.length > 1) {
+      console.log(`🔧 Cleaning up ${allUserVotes.length} duplicate votes for user ${userEmail} on recipe ${id}`);
+      
+      // Remove all votes from this user
+      recipe.votedUsers = recipe.votedUsers.filter(vote => vote.email !== userEmail);
+      
+      // Recalculate vote counts by counting actual votes
+      const recalculatedUpvotes = recipe.votedUsers.filter(vote => vote.voteType === 'upvote').length;
+      const recalculatedDownvotes = recipe.votedUsers.filter(vote => vote.voteType === 'downvote').length;
+      
+      recipe.upvotes = recalculatedUpvotes;
+      recipe.downvotes = recalculatedDownvotes;
+      
+      // If user had any votes, use the most recent vote type
+      const lastVote = allUserVotes[allUserVotes.length - 1];
+      if (lastVote && lastVote.voteType !== voteType) {
+        // Re-add their last vote for clean state
+        recipe.votedUsers.push({ email: userEmail, voteType: lastVote.voteType });
+        if (lastVote.voteType === 'upvote') {
+          recipe.upvotes += 1;
+        } else if (lastVote.voteType === 'downvote') {
+          recipe.downvotes += 1;
+        }
+      }
+    }
+
+    // Now handle the current vote normally
+    const cleanExistingVoteIndex = recipe.votedUsers.findIndex(vote => vote.email === userEmail);
+    const cleanExistingVote = cleanExistingVoteIndex !== -1 ? recipe.votedUsers[cleanExistingVoteIndex] : null;
+
     let upvoteChange = 0;
     let downvoteChange = 0;
 
     // Remove existing vote if it exists
-    if (existingVote) {
-      if (existingVote.voteType === 'upvote') {
+    if (cleanExistingVote) {
+      if (cleanExistingVote.voteType === 'upvote') {
         upvoteChange -= 1;
-      } else if (existingVote.voteType === 'downvote') {
+      } else if (cleanExistingVote.voteType === 'downvote') {
         downvoteChange -= 1;
       }
-      recipe.votedUsers.splice(existingVoteIndex, 1);
+      recipe.votedUsers.splice(cleanExistingVoteIndex, 1);
     }
 
     // Add new vote if not removing
@@ -693,6 +782,79 @@ app.delete('/api/recipes/:id', async (req, res) => {
 });
 
 // ==================== ADMIN ENDPOINTS (Optional) ====================
+
+// Clean up duplicate votes (admin/maintenance endpoint)
+app.post('/api/admin/cleanup-votes', async (req, res) => {
+  try {
+    const recipes = await Recipe.find({});
+    let totalCleaned = 0;
+    let recipesAffected = 0;
+
+    for (const recipe of recipes) {
+      const userVoteCounts = {};
+      let hasDuplicates = false;
+
+      // Count votes per user
+      recipe.votedUsers.forEach(vote => {
+        if (userVoteCounts[vote.email]) {
+          userVoteCounts[vote.email]++;
+          hasDuplicates = true;
+        } else {
+          userVoteCounts[vote.email] = 1;
+        }
+      });
+
+      if (hasDuplicates) {
+        console.log(`🔧 Cleaning duplicates in recipe: ${recipe.title}`);
+        
+        // Keep only the last vote for each user
+        const cleanedVotes = [];
+        const processedUsers = new Set();
+
+        // Process votes in reverse order to keep the most recent
+        for (let i = recipe.votedUsers.length - 1; i >= 0; i--) {
+          const vote = recipe.votedUsers[i];
+          if (!processedUsers.has(vote.email)) {
+            cleanedVotes.unshift(vote);
+            processedUsers.add(vote.email);
+          } else {
+            totalCleaned++;
+          }
+        }
+
+        // Recalculate vote counts
+        const upvotes = cleanedVotes.filter(v => v.voteType === 'upvote').length;
+        const downvotes = cleanedVotes.filter(v => v.voteType === 'downvote').length;
+
+        // Update the recipe
+        await Recipe.updateOne(
+          { _id: recipe._id },
+          {
+            votedUsers: cleanedVotes,
+            upvotes: upvotes,
+            downvotes: downvotes
+          }
+        );
+
+        recipesAffected++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Cleanup completed! Removed ${totalCleaned} duplicate votes from ${recipesAffected} recipes.`,
+      duplicatesRemoved: totalCleaned,
+      recipesAffected: recipesAffected
+    });
+  } catch (error) {
+    console.error('Error during vote cleanup:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to cleanup votes',
+      details: error.message
+    });
+  }
+});
 
 // Get all deleted/inactive recipes (admin only)
 app.get('/api/admin/recipes/deleted', async (req, res) => {

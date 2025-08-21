@@ -94,7 +94,6 @@ export default function PostDetailScreen() {
     if (params.updatedEmail && 
         params.updatedEmail !== userData?.email && 
         params.updatedEmail !== lastProcessedUpdatedEmail) {
-      // console.log(`PostDetail - Email updated: ${userData?.email} → ${params.updatedEmail}`);
       setLastProcessedUpdatedEmail(params.updatedEmail as string);
       
       if (originalUserData) {
@@ -139,7 +138,7 @@ export default function PostDetailScreen() {
         const data = await response.json();
         
         if (data.success && data.recipe) {
-          // Also get the user's vote status
+          // Also get the user vote status
           const voteResponse = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/vote-status/${userData.email}`);
           const voteData = await voteResponse.json();
           
