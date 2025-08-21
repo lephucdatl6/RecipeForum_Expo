@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 
@@ -26,12 +26,15 @@ interface Recipe {
   upvotes?: number;
   downvotes?: number;
   created_at: string;
+  userVote?: 'upvote' | 'downvote' | null;
 }
 
 export default function RecipesForumScreen() {
   const params = useLocalSearchParams();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -48,6 +51,30 @@ export default function RecipesForumScreen() {
     // Load recipes when component mounts
     loadRecipes();
   }, [params.userData]);
+
+  // Filter recipes based on search query
+  const filterRecipes = useCallback((query: string, recipeList: Recipe[]) => {
+    if (!query.trim()) {
+      return recipeList;
+    }
+    
+    const lowercaseQuery = query.toLowerCase();
+    return recipeList.filter(recipe => 
+      recipe.title.toLowerCase().includes(lowercaseQuery) ||
+      recipe.description.toLowerCase().includes(lowercaseQuery) ||
+      recipe.author.toLowerCase().includes(lowercaseQuery)
+    );
+  }, []);
+
+  // Update filtered recipes when search query or recipes change
+  useEffect(() => {
+    const filtered = filterRecipes(searchQuery, recipes);
+    setFilteredRecipes(filtered);
+  }, [searchQuery, recipes, filterRecipes]);
+
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+  };
 
   // Reload recipes when screen comes into focus
   useFocusEffect(
@@ -112,6 +139,102 @@ export default function RecipesForumScreen() {
       }
     });
   };
+
+  const handleVote = async (recipeId: string, voteType: 'upvote' | 'downvote') => {
+    if (!userData) {
+      Alert.alert('Error', 'Please login to vote');
+      return;
+    }
+
+    try {
+      // Find the current recipe to check existing vote
+      const currentRecipe = recipes.find(r => r.id?.toString() === recipeId);
+      if (!currentRecipe) return;
+
+      // Determine the actual vote type to send
+      let actualVoteType = voteType;
+      if (currentRecipe.userVote === voteType) {
+        // If clicking the same vote, remove it
+        actualVoteType = 'remove' as any;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/recipes/${recipeId}/vote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          voteType: actualVoteType,
+          userEmail: userData.email
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the recipe in both recipes and filteredRecipes
+        const updateRecipe = (recipe: Recipe) => {
+          if (recipe.id?.toString() === recipeId) {
+            return {
+              ...recipe,
+              upvotes: data.upvotes,
+              downvotes: data.downvotes,
+              userVote: data.userVote
+            };
+          }
+          return recipe;
+        };
+
+        setRecipes(prev => prev.map(updateRecipe));
+        setFilteredRecipes(prev => prev.map(updateRecipe));
+      } else {
+        Alert.alert('Error', data.error || 'Failed to vote');
+      }
+    } catch (error) {
+      console.error('Error voting:', error);
+      Alert.alert('Error', 'Failed to vote. Please try again.');
+    }
+  };
+
+  const loadUserVotes = async () => {
+    if (!userData || recipes.length === 0) return;
+
+    try {
+      // Load vote status for all recipes
+      const votePromises = recipes.map(async (recipe) => {
+        if (!recipe.id) return recipe;
+        
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/vote-status/${userData.email}`);
+          const data = await response.json();
+          
+          if (data.success) {
+            return {
+              ...recipe,
+              userVote: data.userVote,
+              upvotes: data.upvotes,
+              downvotes: data.downvotes
+            };
+          }
+        } catch (error) {
+          console.error('Error loading vote status:', error);
+        }
+        return recipe;
+      });
+
+      const recipesWithVotes = await Promise.all(votePromises);
+      setRecipes(recipesWithVotes);
+    } catch (error) {
+      console.error('Error loading user votes:', error);
+    }
+  };
+
+  // Load user votes when recipes or userData changes
+  useEffect(() => {
+    if (userData && recipes.length > 0) {
+      loadUserVotes();
+    }
+  }, [userData?.email, recipes.length]);
 
   const formatDate = (dateString: string) => {
     try {
@@ -186,40 +309,88 @@ export default function RecipesForumScreen() {
   };
 
   const renderRecipeCard = ({ item }: { item: Recipe }) => (
-    <TouchableOpacity style={styles.recipeCard} onPress={() => handlePostPress(item)}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.recipeTitle} numberOfLines={2}>{item.title}</Text>
-        <View style={styles.categoryBadge}>
-          <Text style={styles.categoryText}>{item.category}</Text>
+    <View style={styles.recipeCard}>
+      <TouchableOpacity onPress={() => handlePostPress(item)}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.recipeTitle} numberOfLines={2}>{item.title}</Text>
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryText}>{item.category}</Text>
+          </View>
         </View>
-      </View>
-      
-      <Text style={styles.recipeDescription} numberOfLines={2}>
-        {item.description}
-      </Text>
-      
-      <View style={styles.cardFooter}>
-        <View style={styles.metaInfo}>
-          <Text style={styles.cookingTime}>⏱️ {item.cookingTime} min</Text>
-          {item.difficulty && (
-            <Text style={[styles.difficulty, { color: getDifficultyColor(item.difficulty) }]}>
-              🎯 {item.difficulty}
-            </Text>
-          )}
-          <Text style={styles.author}>👤 {item.author}</Text>
+        
+        <Text style={styles.recipeDescription} numberOfLines={2}>
+          {item.description}
+        </Text>
+        
+        <View style={styles.cardFooter}>
+          <View style={styles.metaInfo}>
+            <Text style={styles.cookingTime}>⏱️ {item.cookingTime} min</Text>
+            {item.difficulty && (
+              <Text style={[styles.difficulty, { color: getDifficultyColor(item.difficulty) }]}>
+                🎯 {item.difficulty}
+              </Text>
+            )}
+            <Text style={styles.author}>👤 {item.author}</Text>
+          </View>
+          <Text style={styles.postDate}>{formatDate(item.created_at)}</Text>
         </View>
-        <Text style={styles.postDate}>{formatDate(item.created_at)}</Text>
+      </TouchableOpacity>
+      
+      {/* Voting Section */}
+      <View style={styles.votingSection}>
+        <TouchableOpacity 
+          style={[styles.voteButton, item.userVote === 'upvote' && styles.voteButtonActive]}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleVote(item.id?.toString() || '', 'upvote');
+          }}
+        >
+          <Text style={[styles.voteIcon, item.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
+          <Text style={[styles.voteCount, item.userVote === 'upvote' && styles.voteCountActive]}>
+            {item.upvotes || 0}
+          </Text>
+        </TouchableOpacity>
+        
+        <View style={styles.netVotes}>
+          <Text style={styles.netVotesText}>
+            {(item.upvotes || 0) - (item.downvotes || 0)}
+          </Text>
+        </View>
+        
+        <TouchableOpacity 
+          style={[styles.voteButton, item.userVote === 'downvote' && styles.voteButtonActive]}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleVote(item.id?.toString() || '', 'downvote');
+          }}
+        >
+          <Text style={[styles.voteIcon, item.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
+          <Text style={[styles.voteCount, item.userVote === 'downvote' && styles.voteCountActive]}>
+            {item.downvotes || 0}
+          </Text>
+        </TouchableOpacity>
       </View>
-    </TouchableOpacity>
-  );
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyStateText}>📝</Text>
-      <Text style={styles.emptyStateTitle}>No recipes yet</Text>
-      <Text style={styles.emptyStateSubtitle}>Be the first to share your amazing recipe!</Text>
     </View>
   );
+
+  const renderEmptyState = () => {
+    if (searchQuery.length > 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateTitle}>No results found</Text>
+          <Text style={styles.emptyStateSubtitle}>Try searching with different keywords</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyStateText}>📝</Text>
+        <Text style={styles.emptyStateTitle}>No recipes yet</Text>
+        <Text style={styles.emptyStateSubtitle}>Be the first to share your amazing recipe!</Text>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -227,8 +398,36 @@ export default function RecipesForumScreen() {
         <Text style={styles.title}>Recipes Forum</Text>
       </View>
 
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search recipes, authors, or descriptions..."
+          value={searchQuery}
+          onChangeText={handleSearch}
+          placeholderTextColor="#999"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity 
+            style={styles.clearButton} 
+            onPress={() => setSearchQuery('')}
+          >
+            <Text style={styles.clearButtonText}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Results count */}
+      {searchQuery.length > 0 && (
+        <View style={styles.resultsContainer}>
+          <Text style={styles.resultsText}>
+            {filteredRecipes.length} result{filteredRecipes.length !== 1 ? 's' : ''} found
+          </Text>
+        </View>
+      )}
+
       <FlatList
-        data={recipes}
+        data={filteredRecipes}
         renderItem={renderRecipeCard}
         keyExtractor={(item, index) => item.id ? item.id.toString() : `recipe-${index}`}
         contentContainerStyle={styles.listContainer}
@@ -268,6 +467,53 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
+  },
+  searchContainer: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 30,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#ccc',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearButtonText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  resultsContainer: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  resultsText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
   },
   listContainer: {
     paddingBottom: 100, // Space for FAB
@@ -390,5 +636,58 @@ const styles = StyleSheet.create({
   fabText: {
     fontSize: 24,
     color: 'white',
+  },
+  votingSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingTop: 10,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    backgroundColor: '#fafafa',
+  },
+  voteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#f8f8f8',
+    minWidth: 60,
+    justifyContent: 'center',
+  },
+  voteButtonActive: {
+    backgroundColor: '#ff8c00',
+  },
+  voteIcon: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: 'bold',
+    marginRight: 4,
+  },
+  voteIconActive: {
+    color: 'white',
+  },
+  voteCount: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
+  },
+  voteCountActive: {
+    color: 'white',
+  },
+  netVotes: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#e8f4f8',
+    borderRadius: 15,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  netVotesText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2196F3',
   },
 });

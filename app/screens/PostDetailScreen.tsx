@@ -16,6 +16,7 @@ interface Recipe {
   downvotes?: number;
   created_at: string;
   updatedAt?: string | null;
+  userVote?: 'upvote' | 'downvote' | null;
 }
 
 interface UserData {
@@ -190,18 +191,16 @@ export default function PostDetailScreen() {
     }
   };
 
-  const getLastModifiedText = (recipe: Recipe) => {
-    if (recipe.updatedAt) {
-      return {
-        label: '✏️ Last edited:',
-        value: formatDate(recipe.updatedAt),
-        isEdited: true
-      };
-    }
+  const getDateInfo = (recipe: Recipe) => {
     return {
-      label: '📅 Posted:',
-      value: formatDate(recipe.created_at),
-      isEdited: false
+      posted: {
+        label: '📅 Posted:',
+        value: formatDate(recipe.created_at)
+      },
+      edited: recipe.updatedAt ? {
+        label: '✏️ Last edited:',
+        value: formatDate(recipe.updatedAt)
+      } : null
     };
   };
 
@@ -283,6 +282,74 @@ export default function PostDetailScreen() {
     setShowMoreOptions(true);
   };
 
+  const handleVote = async (voteType: 'upvote' | 'downvote') => {
+    if (!userData || !recipe) {
+      Alert.alert('Error', 'Please login to vote');
+      return;
+    }
+
+    try {
+      // Determine the actual vote type to send
+      let actualVoteType = voteType;
+      if (recipe.userVote === voteType) {
+        // If clicking the same vote, remove it
+        actualVoteType = 'remove' as any;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/vote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          voteType: actualVoteType,
+          userEmail: userData.email
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the recipe with new vote data
+        setRecipe(prev => prev ? {
+          ...prev,
+          upvotes: data.upvotes,
+          downvotes: data.downvotes,
+          userVote: data.userVote
+        } : null);
+      } else {
+        Alert.alert('Error', data.error || 'Failed to vote');
+      }
+    } catch (error) {
+      console.error('Error voting:', error);
+      Alert.alert('Error', 'Failed to vote. Please try again.');
+    }
+  };
+
+  const loadUserVoteStatus = useCallback(async () => {
+    if (!userData || !recipe) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/vote-status/${userData.email}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setRecipe(prev => prev ? {
+          ...prev,
+          userVote: data.userVote,
+          upvotes: data.upvotes,
+          downvotes: data.downvotes
+        } : null);
+      }
+    } catch (error) {
+      console.error('Error loading vote status:', error);
+    }
+  }, [userData, recipe?.id]);
+
+  useEffect(() => {
+    loadUserVoteStatus();
+  }, [loadUserVoteStatus]);
+
   // Check if current user is the owner of the post
   const isOwner = userData && recipe && userData.email === recipe.authorEmail;
 
@@ -354,19 +421,63 @@ export default function PostDetailScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>{getLastModifiedText(recipe).label}</Text>
-              <Text style={[
-                styles.metaValue, 
-                getLastModifiedText(recipe).isEdited && styles.editedText
-              ]}>
-                {getLastModifiedText(recipe).value}
+              <Text style={styles.metaLabel}>{getDateInfo(recipe).posted.label}</Text>
+              <Text style={styles.metaValue}>
+                {getDateInfo(recipe).posted.value}
               </Text>
             </View>
+            {getDateInfo(recipe).edited && (
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>{getDateInfo(recipe).edited!.label}</Text>
+                <Text style={[styles.metaValue, styles.editedText]}>
+                  {getDateInfo(recipe).edited!.value}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.descriptionSection}>
             <Text style={styles.sectionTitle}>Description</Text>
             <Text style={styles.description}>{recipe.description}</Text>
+          </View>
+
+          {/* Voting Section */}
+          <View style={styles.votingSection}>
+            <Text style={styles.sectionTitle}>Community Feedback</Text>
+            <View style={styles.votingControls}>
+              <TouchableOpacity 
+                style={[styles.voteButton, recipe.userVote === 'upvote' && styles.voteButtonActive]}
+                onPress={() => handleVote('upvote')}
+              >
+                <Text style={[styles.voteIcon, recipe.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
+                <Text style={[styles.voteCount, recipe.userVote === 'upvote' && styles.voteCountActive]}>
+                  {recipe.upvotes || 0}
+                </Text>
+                <Text style={[styles.voteLabel, recipe.userVote === 'upvote' && styles.voteLabelActive]}>
+                  Upvote
+                </Text>
+              </TouchableOpacity>
+              
+              <View style={styles.netVotes}>
+                <Text style={styles.netVotesLabel}>Net Score</Text>
+                <Text style={styles.netVotesText}>
+                  {(recipe.upvotes || 0) - (recipe.downvotes || 0)}
+                </Text>
+              </View>
+              
+              <TouchableOpacity 
+                style={[styles.voteButton, recipe.userVote === 'downvote' && styles.voteButtonActive]}
+                onPress={() => handleVote('downvote')}
+              >
+                <Text style={[styles.voteIcon, recipe.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
+                <Text style={[styles.voteCount, recipe.userVote === 'downvote' && styles.voteCountActive]}>
+                  {recipe.downvotes || 0}
+                </Text>
+                <Text style={[styles.voteLabel, recipe.userVote === 'downvote' && styles.voteLabelActive]}>
+                  Downvote
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -608,5 +719,88 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     color: '#666',
+  },
+  votingSection: {
+    marginBottom: 20,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196F3',
+  },
+  votingControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginTop: 15,
+  },
+  voteButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+    backgroundColor: '#f8f8f8',
+    minWidth: 80,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  voteButtonActive: {
+    backgroundColor: '#ff8c00',
+    borderColor: '#ff8c00',
+  },
+  voteIcon: {
+    fontSize: 20,
+    color: '#666',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  voteIconActive: {
+    color: 'white',
+  },
+  voteCount: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  voteCountActive: {
+    color: 'white',
+  },
+  voteLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  voteLabelActive: {
+    color: 'white',
+  },
+  netVotes: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#e8f4f8',
+    borderRadius: 20,
+    minWidth: 80,
+    borderWidth: 2,
+    borderColor: '#2196F3',
+  },
+  netVotesLabel: {
+    fontSize: 12,
+    color: '#2196F3',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  netVotesText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2196F3',
   },
 });

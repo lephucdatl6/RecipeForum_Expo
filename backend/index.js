@@ -70,6 +70,13 @@ const recipeSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  votedUsers: [{
+    email: String,
+    voteType: {
+      type: String,
+      enum: ['upvote', 'downvote']
+    }
+  }],
   isActive: {
     type: Number,
     default: 1,
@@ -532,14 +539,27 @@ app.get('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// Upvote a recipe (only if active)
-app.post('/api/recipes/:id/upvote', async (req, res) => {
+// Vote on a recipe 
+app.post('/api/recipes/:id/vote', async (req, res) => {
   try {
-    const recipe = await Recipe.findOneAndUpdate(
-      { _id: req.params.id, isActive: 1 },
-      { $inc: { upvotes: 1 } },
-      { new: true }
-    );
+    const { id } = req.params;
+    const { voteType, userEmail } = req.body; // voteType: 'upvote', 'downvote', or 'remove'
+
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'User email is required'
+      });
+    }
+
+    if (!['upvote', 'downvote', 'remove'].includes(voteType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid vote type. Must be upvote, downvote, or remove'
+      });
+    }
+
+    const recipe = await Recipe.findOne({ _id: id, isActive: 1 });
     
     if (!recipe) {
       return res.status(404).json({ 
@@ -547,32 +567,64 @@ app.post('/api/recipes/:id/upvote', async (req, res) => {
         error: 'Recipe not found or has been removed' 
       });
     }
-    
+
+    // Find existing vote by this user
+    const existingVoteIndex = recipe.votedUsers.findIndex(vote => vote.email === userEmail);
+    const existingVote = existingVoteIndex !== -1 ? recipe.votedUsers[existingVoteIndex] : null;
+
+    let upvoteChange = 0;
+    let downvoteChange = 0;
+
+    // Remove existing vote if it exists
+    if (existingVote) {
+      if (existingVote.voteType === 'upvote') {
+        upvoteChange -= 1;
+      } else if (existingVote.voteType === 'downvote') {
+        downvoteChange -= 1;
+      }
+      recipe.votedUsers.splice(existingVoteIndex, 1);
+    }
+
+    // Add new vote if not removing
+    if (voteType !== 'remove') {
+      if (voteType === 'upvote') {
+        upvoteChange += 1;
+      } else if (voteType === 'downvote') {
+        downvoteChange += 1;
+      }
+      recipe.votedUsers.push({ email: userEmail, voteType });
+    }
+
+    // Update vote counts
+    recipe.upvotes = Math.max(0, recipe.upvotes + upvoteChange);
+    recipe.downvotes = Math.max(0, recipe.downvotes + downvoteChange);
+
+    await recipe.save();
+
     res.json({
       success: true,
-      message: 'Recipe upvoted!',
+      message: `Recipe ${voteType === 'remove' ? 'vote removed' : voteType + 'd'}!`,
       upvotes: recipe.upvotes,
       downvotes: recipe.downvotes,
-      netVotes: recipe.upvotes - recipe.downvotes
+      netVotes: recipe.upvotes - recipe.downvotes,
+      userVote: voteType === 'remove' ? null : voteType
     });
   } catch (error) {
-    console.error('Error upvoting recipe:', error);
+    console.error('Error voting on recipe:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Failed to upvote recipe',
+      error: 'Failed to vote on recipe',
       details: error.message 
     });
   }
 });
 
-// Downvote a recipe (only if active)
-app.post('/api/recipes/:id/downvote', async (req, res) => {
+// Get user vote status for a recipe
+app.get('/api/recipes/:id/vote-status/:userEmail', async (req, res) => {
   try {
-    const recipe = await Recipe.findOneAndUpdate(
-      { _id: req.params.id, isActive: 1 },
-      { $inc: { downvotes: 1 } },
-      { new: true }
-    );
+    const { id, userEmail } = req.params;
+
+    const recipe = await Recipe.findOne({ _id: id, isActive: 1 });
     
     if (!recipe) {
       return res.status(404).json({ 
@@ -580,19 +632,21 @@ app.post('/api/recipes/:id/downvote', async (req, res) => {
         error: 'Recipe not found or has been removed' 
       });
     }
-    
+
+    const userVote = recipe.votedUsers.find(vote => vote.email === userEmail);
+
     res.json({
       success: true,
-      message: 'Recipe downvoted!',
+      userVote: userVote ? userVote.voteType : null,
       upvotes: recipe.upvotes,
       downvotes: recipe.downvotes,
       netVotes: recipe.upvotes - recipe.downvotes
     });
   } catch (error) {
-    console.error('Error downvoting recipe:', error);
+    console.error('Error getting vote status:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Failed to downvote recipe',
+      error: 'Failed to get vote status',
       details: error.message 
     });
   }
