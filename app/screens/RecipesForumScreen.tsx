@@ -80,7 +80,7 @@ export default function RecipesForumScreen() {
   useFocusEffect(
     useCallback(() => {
       loadRecipes();
-    }, [])
+    }, [userData?.email])
   );
 
   const loadRecipes = async () => {
@@ -95,11 +95,39 @@ export default function RecipesForumScreen() {
       const data = await response.json();
       
       if (data.success && Array.isArray(data.recipes)) {
-        const recipesWithIds = data.recipes.map((recipe: any, index: number) => ({
+        let recipesWithIds = data.recipes.map((recipe: any, index: number) => ({
           ...recipe,
           id: recipe._id || recipe.id || Date.now() + index,
           created_at: recipe.createdAt || recipe.created_at || new Date().toISOString()
         }));
+        
+        // If user is logged in, also load their vote status
+        if (userData) {
+          try {
+            const votePromises = recipesWithIds.map(async (recipe: any) => {
+              try {
+                const voteResponse = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/vote-status/${userData.email}`);
+                const voteData = await voteResponse.json();
+                
+                if (voteData.success) {
+                  return {
+                    ...recipe,
+                    userVote: voteData.userVote,
+                    upvotes: voteData.upvotes,
+                    downvotes: voteData.downvotes
+                  };
+                }
+              } catch (voteError) {
+                console.error('Error loading vote status for recipe:', recipe.id, voteError);
+              }
+              return recipe;
+            });
+            
+            recipesWithIds = await Promise.all(votePromises);
+          } catch (error) {
+            console.error('Error loading vote statuses:', error);
+          }
+        }
         
         setRecipes(recipesWithIds);
         return;
@@ -197,11 +225,15 @@ export default function RecipesForumScreen() {
   };
 
   const loadUserVotes = async () => {
-    if (!userData || recipes.length === 0) return;
+    if (!userData) return;
 
     try {
+      // Get current recipes from state
+      const currentRecipes = recipes.length > 0 ? recipes : filteredRecipes;
+      if (currentRecipes.length === 0) return;
+
       // Load vote status for all recipes
-      const votePromises = recipes.map(async (recipe) => {
+      const votePromises = currentRecipes.map(async (recipe) => {
         if (!recipe.id) return recipe;
         
         try {
@@ -346,9 +378,6 @@ export default function RecipesForumScreen() {
           }}
         >
           <Text style={[styles.voteIcon, item.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
-          <Text style={[styles.voteCount, item.userVote === 'upvote' && styles.voteCountActive]}>
-            {item.upvotes || 0}
-          </Text>
         </TouchableOpacity>
         
         <View style={styles.netVotes}>
@@ -365,9 +394,6 @@ export default function RecipesForumScreen() {
           }}
         >
           <Text style={[styles.voteIcon, item.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
-          <Text style={[styles.voteCount, item.userVote === 'downvote' && styles.voteCountActive]}>
-            {item.downvotes || 0}
-          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -641,52 +667,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingTop: 10,
-    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 5,
+    paddingHorizontal: 15,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     backgroundColor: '#fafafa',
   },
   voteButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 15,
     backgroundColor: '#f8f8f8',
-    minWidth: 60,
+    minWidth: 35,
     justifyContent: 'center',
   },
   voteButtonActive: {
     backgroundColor: '#ff8c00',
   },
   voteIcon: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
     fontWeight: 'bold',
-    marginRight: 4,
   },
   voteIconActive: {
     color: 'white',
   },
-  voteCount: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '600',
-  },
-  voteCountActive: {
-    color: 'white',
-  },
   netVotes: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     backgroundColor: '#e8f4f8',
-    borderRadius: 15,
-    minWidth: 40,
+    borderRadius: 12,
+    minWidth: 35,
     alignItems: 'center',
   },
   netVotesText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#2196F3',
   },

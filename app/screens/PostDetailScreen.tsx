@@ -36,6 +36,7 @@ export default function PostDetailScreen() {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [lastProcessedUpdatedEmail, setLastProcessedUpdatedEmail] = useState<string>('');
   const [originalUserData, setOriginalUserData] = useState<UserData | null>(null);
+  const [voteStatusLoaded, setVoteStatusLoaded] = useState(false);
 
   useEffect(() => {
     if (params.recipe) {
@@ -45,6 +46,7 @@ export default function PostDetailScreen() {
           recipeData.id = recipeData._id;
         }
         setRecipe(recipeData);
+        setVoteStatusLoaded(recipeData.hasOwnProperty('userVote'));
       } catch (error) {
         console.error('Error parsing recipe data:', error);
       }
@@ -60,6 +62,32 @@ export default function PostDetailScreen() {
       }
     }
   }, [params.recipe, params.userData]);
+
+  // Load user vote status only once when component loads and only if missing
+  useEffect(() => {
+    const loadInitialVoteStatus = async () => {
+      if (!userData || !recipe || voteStatusLoaded) return;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/vote-status/${userData.email}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setRecipe(prev => prev ? {
+            ...prev,
+            userVote: data.userVote,
+            upvotes: data.upvotes,
+            downvotes: data.downvotes
+          } : null);
+          setVoteStatusLoaded(true);
+        }
+      } catch (error) {
+        console.error('Error loading vote status:', error);
+      }
+    };
+
+    loadInitialVoteStatus();
+  }, [userData, recipe, voteStatusLoaded]);
 
   // Handle updated email from EditProfileScreen
   useEffect(() => {
@@ -105,12 +133,16 @@ export default function PostDetailScreen() {
 
   // Function to refresh recipe data from API
   const refreshRecipeData = useCallback(async () => {
-    if (recipe?.id) {
+    if (recipe?.id && userData?.email) {
       try {
         const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}`);
         const data = await response.json();
         
         if (data.success && data.recipe) {
+          // Also get the user's vote status
+          const voteResponse = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/vote-status/${userData.email}`);
+          const voteData = await voteResponse.json();
+          
           const updatedRecipe: Recipe = {
             id: data.recipe._id,
             title: data.recipe.title,
@@ -120,31 +152,36 @@ export default function PostDetailScreen() {
             difficulty: data.recipe.difficulty,
             author: data.recipe.author,
             authorEmail: data.recipe.authorEmail,
-            upvotes: data.recipe.upvotes || 0,
-            downvotes: data.recipe.downvotes || 0,
+            upvotes: voteData.success ? voteData.upvotes : (data.recipe.upvotes || 0),
+            downvotes: voteData.success ? voteData.downvotes : (data.recipe.downvotes || 0),
             created_at: data.recipe.createdAt,
-            updatedAt: data.recipe.updatedAt
+            updatedAt: data.recipe.updatedAt,
+            userVote: voteData.success ? voteData.userVote : null
           };
           setRecipe(updatedRecipe);
+          setVoteStatusLoaded(true);
         }
       } catch (error) {
         console.error('Error refreshing recipe data:', error);
       }
     }
-  }, [recipe?.id]);
+  }, [recipe?.id, userData?.email]);
 
   // Refresh data when screen comes into focus (e.g., after editing)
   useFocusEffect(
     useCallback(() => {
-      const timeoutId = setTimeout(() => {
-        refreshRecipeData();
-        if (userData?.email !== lastProcessedUpdatedEmail) {
-          refreshUserData();
-        }
-      }, 200);
-      
-      return () => clearTimeout(timeoutId);
-    }, [refreshRecipeData, refreshUserData, userData?.email, lastProcessedUpdatedEmail])
+      // Only refresh if we have the necessary data and vote status is already loaded
+      if (userData?.email && recipe?.id && voteStatusLoaded) {
+        const timeoutId = setTimeout(() => {
+          refreshRecipeData();
+          if (userData?.email !== lastProcessedUpdatedEmail) {
+            refreshUserData();
+          }
+        }, 200);
+        
+        return () => clearTimeout(timeoutId);
+      }
+    }, [refreshRecipeData, refreshUserData, userData?.email, lastProcessedUpdatedEmail, recipe?.id, voteStatusLoaded])
   );
 
   const handleBack = () => {
@@ -326,30 +363,6 @@ export default function PostDetailScreen() {
     }
   };
 
-  const loadUserVoteStatus = useCallback(async () => {
-    if (!userData || !recipe) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/vote-status/${userData.email}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setRecipe(prev => prev ? {
-          ...prev,
-          userVote: data.userVote,
-          upvotes: data.upvotes,
-          downvotes: data.downvotes
-        } : null);
-      }
-    } catch (error) {
-      console.error('Error loading vote status:', error);
-    }
-  }, [userData, recipe?.id]);
-
-  useEffect(() => {
-    loadUserVoteStatus();
-  }, [loadUserVoteStatus]);
-
   // Check if current user is the owner of the post
   const isOwner = userData && recipe && userData.email === recipe.authorEmail;
 
@@ -442,43 +455,49 @@ export default function PostDetailScreen() {
           </View>
 
           {/* Voting Section */}
-          <View style={styles.votingSection}>
-            <Text style={styles.sectionTitle}>Community Feedback</Text>
-            <View style={styles.votingControls}>
-              <TouchableOpacity 
-                style={[styles.voteButton, recipe.userVote === 'upvote' && styles.voteButtonActive]}
-                onPress={() => handleVote('upvote')}
-              >
-                <Text style={[styles.voteIcon, recipe.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
-                <Text style={[styles.voteCount, recipe.userVote === 'upvote' && styles.voteCountActive]}>
-                  {recipe.upvotes || 0}
-                </Text>
-                <Text style={[styles.voteLabel, recipe.userVote === 'upvote' && styles.voteLabelActive]}>
-                  Upvote
-                </Text>
-              </TouchableOpacity>
-              
-              <View style={styles.netVotes}>
-                <Text style={styles.netVotesLabel}>Net Score</Text>
-                <Text style={styles.netVotesText}>
-                  {(recipe.upvotes || 0) - (recipe.downvotes || 0)}
-                </Text>
+          {voteStatusLoaded ? (
+            <View style={styles.votingSection}>
+              <View style={styles.votingControls}>
+                <TouchableOpacity 
+                  style={[styles.voteButton, recipe.userVote === 'upvote' && styles.voteButtonActive]}
+                  onPress={() => handleVote('upvote')}
+                >
+                  <Text style={[styles.voteIcon, recipe.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
+                </TouchableOpacity>
+                
+                <View style={styles.netVotes}>
+                  <Text style={styles.netVotesText}>
+                    {(recipe.upvotes || 0) - (recipe.downvotes || 0)}
+                  </Text>
+                </View>
+                
+                <TouchableOpacity 
+                  style={[styles.voteButton, recipe.userVote === 'downvote' && styles.voteButtonActive]}
+                  onPress={() => handleVote('downvote')}
+                >
+                  <Text style={[styles.voteIcon, recipe.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
+                </TouchableOpacity>
               </View>
-              
-              <TouchableOpacity 
-                style={[styles.voteButton, recipe.userVote === 'downvote' && styles.voteButtonActive]}
-                onPress={() => handleVote('downvote')}
-              >
-                <Text style={[styles.voteIcon, recipe.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
-                <Text style={[styles.voteCount, recipe.userVote === 'downvote' && styles.voteCountActive]}>
-                  {recipe.downvotes || 0}
-                </Text>
-                <Text style={[styles.voteLabel, recipe.userVote === 'downvote' && styles.voteLabelActive]}>
-                  Downvote
-                </Text>
-              </TouchableOpacity>
             </View>
-          </View>
+          ) : (
+            <View style={styles.votingSection}>
+              <View style={styles.votingControls}>
+                <View style={[styles.voteButton, { opacity: 0.5 }]}>
+                  <Text style={styles.voteIcon}>▲</Text>
+                </View>
+                
+                <View style={styles.netVotes}>
+                  <Text style={styles.netVotesText}>
+                    {(recipe.upvotes || 0) - (recipe.downvotes || 0)}
+                  </Text>
+                </View>
+                
+                <View style={[styles.voteButton, { opacity: 0.5 }]}>
+                  <Text style={styles.voteIcon}>▼</Text>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -724,7 +743,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     backgroundColor: 'white',
     borderRadius: 12,
-    padding: 20,
+    padding: 15,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -740,15 +759,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    marginTop: 15,
   },
   voteButton: {
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 25,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     backgroundColor: '#f8f8f8',
-    minWidth: 80,
+    minWidth: 50,
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
@@ -757,49 +775,25 @@ const styles = StyleSheet.create({
     borderColor: '#ff8c00',
   },
   voteIcon: {
-    fontSize: 20,
+    fontSize: 18,
     color: '#666',
     fontWeight: 'bold',
-    marginBottom: 4,
   },
   voteIconActive: {
     color: 'white',
   },
-  voteCount: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  voteCountActive: {
-    color: 'white',
-  },
-  voteLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-  voteLabelActive: {
-    color: 'white',
-  },
   netVotes: {
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     backgroundColor: '#e8f4f8',
-    borderRadius: 20,
-    minWidth: 80,
+    borderRadius: 15,
+    minWidth: 50,
     borderWidth: 2,
     borderColor: '#2196F3',
   },
-  netVotesLabel: {
-    fontSize: 12,
-    color: '#2196F3',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
   netVotesText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#2196F3',
   },
