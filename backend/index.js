@@ -6,6 +6,31 @@ const { Pool } = require('pg');
 const mongoose = require('mongoose');
 const { sendWelcomeEmail } = require('./emailService');
 const { generateApiConfig } = require('../scripts/generateApiConfig');
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Configure multer for memory storage
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+});
 
 const app = express();
 app.use(cors());
@@ -140,7 +165,7 @@ app.get('/api/users/profile/:email', async (req, res) => {
   try {
     const { email } = req.params;
     const result = await pool.query(
-      'SELECT username, email, dob, phone, point, created_at FROM users WHERE email = $1',
+      'SELECT username, email, dob, phone, point, created_at, profile_image_url FROM users WHERE email = $1',
       [email]
     );
     
@@ -160,7 +185,8 @@ app.get('/api/users/profile/:email', async (req, res) => {
         dateOfBirth: user.dob,
         phone: user.phone,
         points: user.point,
-        memberSince: user.created_at
+        memberSince: user.created_at,
+        profileImageUrl: user.profile_image_url
       }
     });
   } catch (err) {
@@ -227,7 +253,6 @@ app.put('/api/users/profile/:email', async (req, res) => {
         );
 
         // Update votedUsers array for recipes they've voted on
-        // First update using positional operator $ for recipes where user has voted
         const voteUpdateResult = await Recipe.updateMany(
           { "votedUsers.email": email },
           { 
@@ -235,7 +260,6 @@ app.put('/api/users/profile/:email', async (req, res) => {
           }
         );
 
-        // Handle potential edge case where user has multiple votes
         // Only update recipes that actually have votedUsers field
         await Recipe.updateMany(
           { 
@@ -298,6 +322,71 @@ app.put('/api/users/profile/:email', async (req, res) => {
   }
 });
 
+// Upload profile image
+app.post('/api/users/profile/:email/upload-image', upload.single('profileImage'), async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
+    }
+
+    // Verify user exists
+    const userCheck = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Upload to Cloudinary
+    const uploadPromise = new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'image',
+          folder: 'recipe_forum/profile_images',
+          public_id: `profile_${email.replace('@', '_at_').replace('.', '_dot_')}`,
+          overwrite: true,
+          transformation: [
+            { width: 300, height: 300, crop: 'fill', gravity: 'face' },
+            { quality: 'auto:good' }
+          ]
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(req.file.buffer);
+    });
+
+    const uploadResult = await uploadPromise;
+
+    // Update user profile with image URL
+    const updateResult = await pool.query(
+      'UPDATE users SET profile_image_url = $1 WHERE email = $2 RETURNING username, email, profile_image_url',
+      [uploadResult.secure_url, email]
+    );
+
+    res.json({
+      success: true,
+      message: 'Profile image uploaded successfully',
+      imageUrl: uploadResult.secure_url,
+      user: updateResult.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error uploading profile image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload profile image'
+    });
+  }
+});
+
 // Add created_at column if it doesn't exist
 async function ensureCreatedAtColumn() {
   try {
@@ -309,7 +398,22 @@ async function ensureCreatedAtColumn() {
     console.error('Error adding created_at column:', err.message);
   }
 }
+
+// Add profile_image_url column if it doesn't exist
+async function ensureProfileImageColumn() {
+  try {
+    await pool.query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS profile_image_url TEXT
+    `);
+    console.log('✅ Cloudinary connected successfully');
+  } catch (err) {
+    console.error('Error adding profile_image_url column:', err.message);
+  }
+}
+
 ensureCreatedAtColumn();
+ensureProfileImageColumn();
 
 // Authentication routes
 // Signup route

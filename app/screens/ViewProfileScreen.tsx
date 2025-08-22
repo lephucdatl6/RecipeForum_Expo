@@ -1,6 +1,6 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 
 interface UserProfile {
@@ -8,6 +8,7 @@ interface UserProfile {
   email: string;
   points: number;
   memberSince: string;
+  profileImageUrl?: string;
 }
 
 export default function ViewProfileScreen() {
@@ -140,9 +141,16 @@ export default function ViewProfileScreen() {
           <View style={styles.profileCard}>
             <View style={styles.profileHeader}>
               <View style={styles.avatarContainer}>
-                <Text style={styles.avatarText}>
-                  {userProfile.username.charAt(0).toUpperCase()}
-                </Text>
+                {userProfile.profileImageUrl ? (
+                  <Image 
+                    source={{ uri: userProfile.profileImageUrl }} 
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <Text style={styles.avatarText}>
+                    {userProfile.username.charAt(0).toUpperCase()}
+                  </Text>
+                )}
               </View>
               <Text style={styles.username}>{userProfile.username}</Text>
             </View>
@@ -245,13 +253,20 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 130,
+    height: 130,
+    borderRadius:140,
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 10,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 130,
+    height: 130,
+    borderRadius: 50,
   },
   avatarText: {
     fontSize: 32,

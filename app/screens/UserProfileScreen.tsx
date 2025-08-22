@@ -1,6 +1,7 @@
+import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 
@@ -12,6 +13,7 @@ interface UserData {
   phone: string;
   points: number;
   created_at?: string;
+  profileImageUrl?: string;
 }
 
 export default function UserProfileScreen() {
@@ -21,6 +23,7 @@ export default function UserProfileScreen() {
   const [userEmail, setUserEmail] = useState<string>('');
   const [originalUserData, setOriginalUserData] = useState<UserData | null>(null);
   const [lastProcessedUpdatedEmail, setLastProcessedUpdatedEmail] = useState<string>('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Initialize user data from params on first load
   useEffect(() => {
@@ -65,6 +68,7 @@ export default function UserProfileScreen() {
           points: apiUser.points || originalUserData.points || 0, 
           dateOfBirth: apiUser.dateOfBirth || originalUserData.dateOfBirth || '',
           phone: apiUser.phone || originalUserData.phone || '',
+          profileImageUrl: apiUser.profileImageUrl || originalUserData.profileImageUrl,
         };
         
         setUserData(mergedUser);
@@ -149,6 +153,69 @@ export default function UserProfileScreen() {
     }
   };
 
+  const pickImage = async () => {
+    // Request permission
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+      return;
+    }
+
+    // Launch image picker
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      uploadImage(result.assets[0]);
+    }
+  };
+
+  const uploadImage = async (asset: ImagePicker.ImagePickerAsset) => {
+    if (!userData?.email) return;
+
+    setUploadingImage(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('profileImage', {
+        uri: asset.uri,
+        name: 'profile-image.jpg',
+        type: 'image/jpeg',
+      } as any);
+
+      const response = await fetch(`${API_BASE_URL}/api/users/profile/${userData.email}/upload-image`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the profile with new image URL
+        setUserData(prev => prev ? {
+          ...prev,
+          profileImageUrl: data.imageUrl
+        } : null);
+        Alert.alert('Success', 'Profile image updated successfully!');
+      } else {
+        Alert.alert('Error', data.message || 'Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      Alert.alert('Error', 'Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     try {
       if (!dateString || dateString.trim() === '') {
@@ -214,6 +281,34 @@ export default function UserProfileScreen() {
 
         <View style={styles.userCard}>
           <Text style={styles.welcomeText}>Welcome back!</Text>
+          
+          {/* Profile Image Section */}
+          <View style={styles.profileImageSection}>
+            <TouchableOpacity 
+              style={styles.avatarContainer}
+              onPress={pickImage}
+              disabled={uploadingImage}
+            >
+              {userData.profileImageUrl ? (
+                <Image 
+                  source={{ uri: userData.profileImageUrl }} 
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {userData.username.charAt(0).toUpperCase()}
+                </Text>
+              )}
+              {uploadingImage && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="small" color="#fff" />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <Text style={styles.profileName}>{userData.username}</Text>
+            <Text style={styles.uploadHint}>Tap to change profile picture</Text>
+          </View>
           
           <View style={styles.userInfo}>
             <Text style={styles.userInfoTitle}>User Information</Text>
@@ -326,6 +421,53 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 15,
+    textAlign: 'center',
+  },
+  profileImageSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatarContainer: {
+    width: 130,
+    height: 130,
+    borderRadius:140,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 130,
+    height: 130,
+    borderRadius: 50,
+  },
+  avatarText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000000aa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 50,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  uploadHint: {
+    fontSize: 12,
+    color: '#666',
     textAlign: 'center',
   },
   userInfo: {
