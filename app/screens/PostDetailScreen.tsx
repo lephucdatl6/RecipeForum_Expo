@@ -1,6 +1,6 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 
 interface Recipe {
@@ -12,6 +12,7 @@ interface Recipe {
   difficulty?: string;
   author: string;
   authorEmail: string;
+  authorProfileImage?: string;
   upvotes?: number;
   downvotes?: number;
   created_at: string;
@@ -37,6 +38,7 @@ export default function PostDetailScreen() {
   const [lastProcessedUpdatedEmail, setLastProcessedUpdatedEmail] = useState<string>('');
   const [originalUserData, setOriginalUserData] = useState<UserData | null>(null);
   const [voteStatusLoaded, setVoteStatusLoaded] = useState(false);
+  const [authorProfileImage, setAuthorProfileImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (params.recipe) {
@@ -46,6 +48,7 @@ export default function PostDetailScreen() {
           recipeData.id = recipeData._id;
         }
         setRecipe(recipeData);
+        setAuthorProfileImage(null); // Reset profile image when recipe changes
         setVoteStatusLoaded(recipeData.hasOwnProperty('userVote'));
       } catch (error) {
         console.error('Error parsing recipe data:', error);
@@ -182,6 +185,25 @@ export default function PostDetailScreen() {
       }
     }, [refreshRecipeData, refreshUserData, userData?.email, lastProcessedUpdatedEmail, recipe?.id, voteStatusLoaded])
   );
+
+  // Load author profile image
+  useEffect(() => {
+    const loadAuthorProfileImage = async () => {
+      if (recipe?.authorEmail && !authorProfileImage) {
+        try {
+          const authorResponse = await fetch(`${API_BASE_URL}/api/users/profile/${recipe.authorEmail}`);
+          const authorData = await authorResponse.json();
+          if (authorData.success && authorData.user?.profileImageUrl) {
+            setAuthorProfileImage(authorData.user.profileImageUrl);
+          }
+        } catch (error) {
+          console.log('Author profile image not found:', error);
+        }
+      }
+    };
+
+    loadAuthorProfileImage();
+  }, [recipe?.authorEmail, authorProfileImage]);
 
   const handleBack = () => {
     router.back();
@@ -428,9 +450,25 @@ export default function PostDetailScreen() {
             )}
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>👤 Author:</Text>
-              <TouchableOpacity onPress={handleViewAuthorProfile}>
-                <Text style={[styles.metaValue, styles.authorName]}>{recipe.author}</Text>
-              </TouchableOpacity>
+              <View style={styles.authorContainer}>
+                <View style={styles.authorProfileImageContainer}>
+                  {authorProfileImage ? (
+                    <Image 
+                      source={{ uri: authorProfileImage }} 
+                      style={styles.authorProfileImage}
+                    />
+                  ) : (
+                    <View style={[styles.authorProfileImage, styles.authorInitials]}>
+                      <Text style={styles.authorInitialsText}>
+                        {recipe.author.substring(0, 2).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <TouchableOpacity onPress={handleViewAuthorProfile}>
+                  <Text style={[styles.metaValue, styles.authorName]}>{recipe.author}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>{getDateInfo(recipe).posted.label}</Text>
@@ -694,6 +732,28 @@ const styles = StyleSheet.create({
   authorName: {
     color: '#333333',
     textDecorationLine: 'underline',
+  },
+  authorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  authorProfileImageContainer: {
+    marginRight: 8,
+  },
+  authorProfileImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  authorInitials: {
+    backgroundColor: '#4a90e2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  authorInitialsText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   editedText: {
     color: '#ff8c00',
