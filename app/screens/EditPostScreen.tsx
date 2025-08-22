@@ -156,7 +156,7 @@ export default function EditPostScreen() {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>✏️ Edit Your Recipe</Text>
+          <Text style={styles.formTitle}>Edit Your Recipe</Text>
           
           <TextInput
             style={styles.input}
@@ -177,50 +177,68 @@ export default function EditPostScreen() {
             textAlignVertical="top"
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Cooking Time (minutes) *"
-            placeholderTextColor="#666"
-            value={formData.cookingTime}
-            onChangeText={(text) => setFormData({...formData, cookingTime: text})}
-            keyboardType="numeric"
-          />
-
-          <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>Difficulty Level:</Text>
-            <View style={styles.difficultyButtons}>
-              {['Easy', 'Medium', 'Hard'].map((level) => (
-                <TouchableOpacity
-                  key={level}
-                  style={[
-                    styles.difficultyButton,
-                    formData.difficulty === level && styles.selectedDifficulty
-                  ]}
-                  onPress={() => setFormData({...formData, difficulty: level})}
-                >
-                  <Text style={[
-                    styles.difficultyText,
-                    formData.difficulty === level && styles.selectedDifficultyText
-                  ]}>
-                    {level}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <View style={styles.row}>
+            <TextInput
+              style={[styles.input, styles.halfInput]}
+              placeholder="Cooking Time (minutes) *"
+              placeholderTextColor="#666"
+              value={formData.cookingTime}
+              onChangeText={(text) => setFormData({...formData, cookingTime: text})}
+              keyboardType="numeric"
+            />
+            
+            <TextInput
+              style={[styles.input, styles.halfInput]}
+              placeholder="Category *"
+              placeholderTextColor="#666"
+              value={formData.category}
+              onChangeText={(text) => setFormData({...formData, category: text})}
+            />
           </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Category (e.g., Breakfast, Dinner, Dessert) *"
-            placeholderTextColor="#666"
-            value={formData.category}
-            onChangeText={(text) => setFormData({...formData, category: text})}
-          />
-
-          <View style={styles.infoSection}>
-            <Text style={styles.infoText}>• Make sure your recipe is clear and easy to follow</Text>
-            <Text style={styles.infoText}>• Include accurate cooking times</Text>
-            <Text style={styles.infoText}>• Choose the appropriate difficulty level</Text>
+          {/* Difficulty Selector */}
+          <View style={styles.difficultyContainer}>
+            <Text style={styles.difficultyLabel}>Difficulty Level *</Text>
+            <View style={styles.difficultyRow}>
+              <TouchableOpacity
+                style={[
+                  styles.difficultyButton,
+                  formData.difficulty === 'Easy' && styles.difficultyButtonSelected
+                ]}
+                onPress={() => setFormData({...formData, difficulty: 'Easy'})}
+              >
+                <Text style={[
+                  styles.difficultyButtonText,
+                  formData.difficulty === 'Easy' && styles.difficultyButtonTextSelected
+                ]}>Easy</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.difficultyButton,
+                  formData.difficulty === 'Medium' && styles.difficultyButtonSelected
+                ]}
+                onPress={() => setFormData({...formData, difficulty: 'Medium'})}
+              >
+                <Text style={[
+                  styles.difficultyButtonText,
+                  formData.difficulty === 'Medium' && styles.difficultyButtonTextSelected
+                ]}>Medium</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.difficultyButton,
+                  formData.difficulty === 'Hard' && styles.difficultyButtonSelected
+                ]}
+                onPress={() => setFormData({...formData, difficulty: 'Hard'})}
+              >
+                <Text style={[
+                  styles.difficultyButtonText,
+                  formData.difficulty === 'Hard' && styles.difficultyButtonTextSelected
+                ]}>Hard</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity 
@@ -312,49 +330,41 @@ const styles = StyleSheet.create({
     minHeight: 120,
     maxHeight: 200,
   },
-  pickerContainer: {
+  difficultyContainer: {
     marginBottom: 15,
   },
-  pickerLabel: {
+  difficultyLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  difficultyButtons: {
+  difficultyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   difficultyButton: {
     flex: 1,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     marginHorizontal: 4,
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#ddd',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f9f9f9',
     alignItems: 'center',
   },
-  selectedDifficulty: {
-    backgroundColor: '#ff8c00',
+  difficultyButtonSelected: {
     borderColor: '#ff8c00',
+    backgroundColor: '#fff3e0',
   },
-  difficultyText: {
+  difficultyButtonText: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  selectedDifficultyText: {
-    color: 'white',
     fontWeight: '600',
+    color: '#666',
   },
-  infoSection: {
-    marginBottom: 20,
-    padding: 15,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ff8c00',
+  difficultyButtonTextSelected: {
+    color: '#ff8c00',
   },
   infoText: {
     fontSize: 14,
@@ -383,5 +393,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  halfInput: {
+    flex: 1,
   },
 });

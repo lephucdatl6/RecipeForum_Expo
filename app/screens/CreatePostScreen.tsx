@@ -139,7 +139,7 @@ export default function CreatePostScreen() {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>📝 Share Your Recipe</Text>
+          <Text style={styles.formTitle}>Share Your Recipe</Text>
           
           <TextInput
             style={styles.input}
