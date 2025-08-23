@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
@@ -65,7 +65,7 @@ export default function UserProfileScreen() {
           ...originalUserData, 
           username: apiUser.username || originalUserData.username, 
           email: apiUser.email || originalUserData.email, 
-          points: apiUser.points || originalUserData.points || 0, 
+          points: apiUser.points !== undefined ? apiUser.points : (originalUserData.points || 0),
           dateOfBirth: apiUser.dateOfBirth || originalUserData.dateOfBirth || '',
           phone: apiUser.phone || originalUserData.phone || '',
           profileImageUrl: apiUser.profileImageUrl || originalUserData.profileImageUrl,
@@ -119,11 +119,10 @@ export default function UserProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Only fetch on focus if it's not a recently updated email
-      if (userEmail && originalUserData && userEmail !== lastProcessedUpdatedEmail) {
+      if (userEmail && originalUserData) {
         fetchUserDataWithEmail(userEmail, true); 
       }
-    }, [userEmail, originalUserData, fetchUserDataWithEmail, lastProcessedUpdatedEmail])
+    }, [userEmail, originalUserData, fetchUserDataWithEmail])
   );
 
   const handleLogout = () => {

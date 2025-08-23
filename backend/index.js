@@ -165,7 +165,7 @@ app.get('/api/users/profile/:email', async (req, res) => {
   try {
     const { email } = req.params;
     const result = await pool.query(
-      'SELECT username, email, dob, phone, point, created_at, profile_image_url FROM users WHERE email = $1',
+      'SELECT username, email, dob, phone, points, created_at, profile_image_url FROM users WHERE email = $1',
       [email]
     );
     
@@ -184,7 +184,7 @@ app.get('/api/users/profile/:email', async (req, res) => {
         email: user.email,
         dateOfBirth: user.dob,
         phone: user.phone,
-        points: user.point,
+        points: user.points,
         memberSince: user.created_at,
         profileImageUrl: user.profile_image_url
       }
@@ -227,9 +227,9 @@ app.put('/api/users/profile/:email', async (req, res) => {
       }
     }
 
-    // Update user profile
+    // Update user profile (SQL)
     const result = await pool.query(
-      'UPDATE users SET username = $1, email = $2 WHERE email = $3 RETURNING username, email, point, created_at',
+      'UPDATE users SET username = $1, email = $2 WHERE email = $3 RETURNING username, email, points, created_at',
       [username, newEmail, email]
     );
 
@@ -243,7 +243,7 @@ app.put('/api/users/profile/:email', async (req, res) => {
     // If email changed, update all MongoDB recipes with the new authorEmail
     if (newEmail !== email) {
       try {
-        // Update authorEmail for recipes they own
+        // Update authorEmail for recipes authored by this user
         const mongoUpdateResult = await Recipe.updateMany(
           { authorEmail: email },
           { 
@@ -289,10 +289,11 @@ app.put('/api/users/profile/:email', async (req, res) => {
           { author: username }
         );
       } catch (mongoErr) {
-        console.error('❌ Error updating MongoDB recipes username:', mongoErr);
+        // console.error('Error updating MongoDB recipes username:', mongoErr);
       }
     }
 
+    // Return success response
     const updatedUser = result.rows[0];
     res.json({
       success: true,
@@ -300,7 +301,7 @@ app.put('/api/users/profile/:email', async (req, res) => {
       user: {
         username: updatedUser.username,
         email: updatedUser.email,
-        points: updatedUser.point,
+        points: updatedUser.points,
         memberSince: updatedUser.created_at
       }
     });
@@ -455,7 +456,7 @@ app.post('/api/auth/signup', async (req, res) => {
     
     // Insert new user (database will enforce email uniqueness)
     const result = await pool.query(
-      'INSERT INTO users (username, email, password, dob, phone, point, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING user_id, username, email, dob, phone, point, created_at',
+      'INSERT INTO users (username, email, password, dob, phone, points, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING user_id, username, email, dob, phone, points, created_at',
       [username, email, hashedPassword, dateOfBirth, phone, points]
     );
     
@@ -502,7 +503,7 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     // Find user by email
     const result = await pool.query(
-      'SELECT user_id, username, email, password, dob, phone, point, created_at FROM users WHERE email = $1',
+      'SELECT user_id, username, email, password, dob, phone, points, created_at FROM users WHERE email = $1',
       [email]
     );
     
@@ -534,7 +535,7 @@ app.post('/api/auth/login', async (req, res) => {
       user: {
         ...userWithoutPassword,
         dateOfBirth: user.dob,
-        points: user.point
+        points: user.points
       }
     });
   } catch (err) {
@@ -700,6 +701,38 @@ app.get('/api/recipes/:id', async (req, res) => {
   }
 });
 
+// Helper function to update author points based on net votes
+async function updateAuthorPoints(authorEmail) {
+  try {
+    // Get all recipes by this author
+    const authorRecipes = await Recipe.find({ 
+      authorEmail: authorEmail, 
+      isActive: 1 
+    });
+
+    // Calculate total net votes across all their recipes
+    let totalPoints = 0;
+    authorRecipes.forEach(recipe => {
+      const netVotes = (recipe.upvotes || 0) - (recipe.downvotes || 0);
+      totalPoints += netVotes;
+      // console.log(`Recipe "${recipe.title}": ${recipe.upvotes || 0} upvotes - ${recipe.downvotes || 0} downvotes = ${netVotes} net`);
+    });
+
+    // Ensure points can't go negative
+    totalPoints = Math.max(0, totalPoints);
+
+    // Update user points in PostgreSQL (using 'points' column name)
+    const updateQuery = 'UPDATE users SET points = $1 WHERE email = $2';
+    await pool.query(updateQuery, [totalPoints, authorEmail]);
+
+    // console.log(`Updated points for ${authorEmail}: ${totalPoints} points`);
+    return totalPoints;
+  } catch (error) {
+    console.error('Error updating author points:', error);
+    throw error;
+  }
+}
+
 // Vote on a recipe 
 app.post('/api/recipes/:id/vote', async (req, res) => {
   try {
@@ -793,6 +826,14 @@ app.post('/api/recipes/:id/vote', async (req, res) => {
     recipe.downvotes = Math.max(0, recipe.downvotes + downvoteChange);
 
     await recipe.save();
+
+    // Update author points based on net votes
+    try {
+      await updateAuthorPoints(recipe.authorEmail);
+    } catch (pointError) {
+      console.error('Error updating author points:', pointError);
+      // Don't fail the vote if point update fails
+    }
 
     res.json({
       success: true,
@@ -1063,5 +1104,48 @@ app.post('/api/users', async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin endpoint to recalculate all user points based on their recipes' net votes
+app.post('/api/admin/recalculate-points', async (req, res) => {
+  try {
+    // Get all users
+    const usersResult = await pool.query('SELECT email FROM users');
+    const users = usersResult.rows;
+    
+    let updatedCount = 0;
+    const results = [];
+
+    for (const user of users) {
+      try {
+        const newPoints = await updateAuthorPoints(user.email);
+        results.push({
+          email: user.email,
+          points: newPoints
+        });
+        updatedCount++;
+      } catch (error) {
+        console.error(`Failed to update points for ${user.email}:`, error);
+        results.push({
+          email: user.email,
+          error: error.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Recalculated points for ${updatedCount} users`,
+      totalUsers: users.length,
+      results: results
+    });
+  } catch (error) {
+    console.error('Error recalculating points:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to recalculate points',
+      details: error.message
+    });
   }
 });

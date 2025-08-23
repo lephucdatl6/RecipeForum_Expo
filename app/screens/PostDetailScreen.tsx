@@ -172,7 +172,7 @@ export default function PostDetailScreen() {
   // Refresh data when screen comes into focus (e.g., after editing)
   useFocusEffect(
     useCallback(() => {
-      // Only refresh if we have the necessary data and vote status is already loaded
+      // Only refresh if the necessary data and vote status is already loaded
       if (userData?.email && recipe?.id && voteStatusLoaded) {
         const timeoutId = setTimeout(() => {
           refreshRecipeData();
