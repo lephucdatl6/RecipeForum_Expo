@@ -658,14 +658,28 @@ app.put('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// Get all recipes (only active ones)
+// Get all recipes (only active ones) - Optimized MongoDB query
 app.get('/api/recipes', async (req, res) => {
   try {
-    const recipes = await Recipe.find({ isActive: 1 }).sort({ createdAt: -1 });
+    // MongoDB advantage: Single query vs multiple JOINs in SQL
+    // This would require 4+ table JOINs in pure SQL (recipes, users, ingredients, instructions, votes)
+    const startTime = Date.now();
+    
+    const recipes = await Recipe.find({ isActive: 1 })
+      .sort({ createdAt: -1 })
+      .select('title description cookingTime difficulty category author authorEmail upvotes downvotes createdAt');
+    
+    const queryTime = Date.now() - startTime;
+    // console.log(`MongoDB Recipe Query Performance: ${queryTime}ms for ${recipes.length} recipes`);
+    
     res.json({
       success: true,
       count: recipes.length,
-      recipes
+      recipes,
+      performance: {
+        queryTime: `${queryTime}ms`,
+        advantage: "Single document query vs 4+ table JOINs in SQL"
+      }
     });
   } catch (error) {
     console.error('Error fetching recipes:', error);
@@ -926,7 +940,87 @@ app.delete('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// ==================== ADMIN ENDPOINTS (Optional) ====================
+// ==================== ADMIN ENDPOINTS ====================
+
+// Database Analytics - Demonstrates benefits of hybrid architecture
+app.get('/api/admin/analytics', async (req, res) => {
+  try {
+    const startTime = Date.now();
+    
+    // PostgreSQL - Optimized for user analytics and aggregations
+    const userStats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        AVG(points) as avg_points,
+        MAX(points) as max_points,
+        MIN(points) as min_points
+      FROM users
+    `);
+    
+    // MongoDB - Optimized for content analytics
+    const recipeStats = await Recipe.aggregate([
+      { $match: { isActive: 1 } },
+      {
+        $group: {
+          _id: null,
+          totalRecipes: { $sum: 1 },
+          avgUpvotes: { $avg: "$upvotes" },
+          avgDownvotes: { $avg: "$downvotes" },
+          totalVotes: { $sum: { $add: ["$upvotes", "$downvotes"] } },
+          categories: { $push: "$category" }
+        }
+      }
+    ]);
+    
+    const categoryStats = await Recipe.aggregate([
+      { $match: { isActive: 1 } },
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    const queryTime = Date.now() - startTime;
+
+    // Clean up unwanted fields
+    let cleanRecipeStats = {};
+    if (recipeStats[0]) {
+      const { _id, ...rest } = recipeStats[0];
+      cleanRecipeStats = rest;
+    }
+
+    const cleanCategoryStats = categoryStats.map(({ _id }) => ({
+      category: _id 
+    }));
+
+    res.json({
+      success: true,
+      performance: {
+        queryTime: `${queryTime}ms`,
+        architecture: "Hybrid PostgreSQL + MongoDB",
+        benefits: [
+          "PostgreSQL: ACID compliance for user data aggregations",
+          "MongoDB: Flexible aggregation pipeline for content analytics",
+          "Optimal performance: Each DB handles what it does best"
+        ]
+      },
+      userAnalytics: userStats.rows[0],
+      recipeAnalytics: cleanRecipeStats,
+      categoryBreakdown: cleanCategoryStats,
+      technicalNotes: {
+        sqlComplexity: "Simple aggregation queries on normalized user data",
+        nosqlComplexity: "Complex aggregation pipeline on denormalized recipe documents",
+        reasoning: "Users need ACID compliance, Recipes need flexible schema and fast reads"
+      }
+    });
+  } catch (error) {
+    console.error('Error getting analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get analytics',
+      details: error.message
+    });
+  }
+});
+
 
 // Clean up duplicate votes (admin/maintenance endpoint)
 app.post('/api/admin/cleanup-votes', async (req, res) => {
@@ -950,7 +1044,7 @@ app.post('/api/admin/cleanup-votes', async (req, res) => {
       });
 
       if (hasDuplicates) {
-        console.log(`🔧 Cleaning duplicates in recipe: ${recipe.title}`);
+        console.log(`Cleaning duplicates in recipe: ${recipe.title}`);
         
         // Keep only the last vote for each user
         const cleanedVotes = [];
@@ -1001,7 +1095,7 @@ app.post('/api/admin/cleanup-votes', async (req, res) => {
   }
 });
 
-// Get all deleted/inactive recipes (admin only)
+// Get all deleted/inactive recipes
 app.get('/api/admin/recipes/deleted', async (req, res) => {
   try {
     const deletedRecipes = await Recipe.find({ isActive: 0 }).sort({ deletedAt: -1 });
@@ -1020,7 +1114,7 @@ app.get('/api/admin/recipes/deleted', async (req, res) => {
   }
 });
 
-// Restore a deleted recipe (admin only)
+// Restore a deleted recipe
 app.patch('/api/admin/recipes/:id/restore', async (req, res) => {
   try {
     const recipe = await Recipe.findOneAndUpdate(
