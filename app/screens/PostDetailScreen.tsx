@@ -70,9 +70,10 @@ export default function PostDetailScreen() {
   const slideAnimation = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   
-  // Keyboard handling
+  // Keyboard handling with animated values for smooth transitions
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const keyboardAnimatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (params.recipe) {
@@ -82,7 +83,7 @@ export default function PostDetailScreen() {
           recipeData.id = recipeData._id;
         }
         setRecipe(recipeData);
-        setAuthorProfileImage(null); // Reset profile image when recipe changes
+        setAuthorProfileImage(null);
         setVoteStatusLoaded(recipeData.hasOwnProperty('userVote'));
       } catch (error) {
         console.error('Error parsing recipe data:', error);
@@ -93,7 +94,7 @@ export default function PostDetailScreen() {
       try {
         const user = JSON.parse(params.userData as string);
         setUserData(user);
-        setOriginalUserData(user); // Store original data from login
+        setOriginalUserData(user);
       } catch (error) {
         console.error('Error parsing user data:', error);
       }
@@ -213,6 +214,8 @@ export default function PostDetailScreen() {
           if (userData?.email !== lastProcessedUpdatedEmail) {
             refreshUserData();
           }
+          loadComments();
+          loadCommentStats();
         }, 200);
         
         return () => clearTimeout(timeoutId);
@@ -247,14 +250,22 @@ export default function PostDetailScreen() {
     }
   }, [recipe?.id]);
 
-  // Keyboard event listeners
+  // Keyboard event listeners with smooth animations
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
       (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
+        const newHeight = e.endCoordinates.height;
+        setKeyboardHeight(newHeight);
         setIsKeyboardVisible(true);
-        // Don't auto-scroll - just let the input move up
+        
+        // Smooth animation for keyboard appearance
+        Animated.timing(keyboardAnimatedValue, {
+          toValue: newHeight,
+          duration: 250, 
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: false, // Can't use native driver for layout properties
+        }).start();
       }
     );
 
@@ -263,14 +274,58 @@ export default function PostDetailScreen() {
       () => {
         setKeyboardHeight(0);
         setIsKeyboardVisible(false);
+        
+        // Smooth animation for keyboard hiding
+        Animated.timing(keyboardAnimatedValue, {
+          toValue: 0,
+          duration: 250, 
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: false,
+        }).start();
       }
     );
+
+    // For even smoother response, also listen to keyboardWillShow/Hide on iOS
+    const keyboardWillShowListener = Platform.OS === 'ios' ? Keyboard.addListener(
+      'keyboardWillShow',
+      (e) => {
+        const newHeight = e.endCoordinates.height;
+        setKeyboardHeight(newHeight);
+        setIsKeyboardVisible(true);
+        
+        // Start animation immediately on iOS
+        Animated.timing(keyboardAnimatedValue, {
+          toValue: newHeight,
+          duration: e.duration || 250,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: false,
+        }).start();
+      }
+    ) : null;
+
+    const keyboardWillHideListener = Platform.OS === 'ios' ? Keyboard.addListener(
+      'keyboardWillHide',
+      (e) => {
+        setKeyboardHeight(0);
+        setIsKeyboardVisible(false);
+        
+        // Start animation immediately on iOS
+        Animated.timing(keyboardAnimatedValue, {
+          toValue: 0,
+          duration: e.duration || 250,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: false,
+        }).start();
+      }
+    ) : null;
 
     return () => {
       keyboardDidShowListener?.remove();
       keyboardDidHideListener?.remove();
+      keyboardWillShowListener?.remove();
+      keyboardWillHideListener?.remove();
     };
-  }, []);
+  }, [keyboardAnimatedValue]);
 
   // Load user data from storage
   useFocusEffect(
@@ -367,7 +422,7 @@ export default function PostDetailScreen() {
           toValue: 0,
           duration: 300,
           easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }).start();
       } else {
         Alert.alert('Error', data.error || 'Failed to post comment');
@@ -390,7 +445,7 @@ export default function PostDetailScreen() {
       toValue: 1,
       duration: 300,
       easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
     
     // Scroll to bottom to show the reply input
@@ -409,7 +464,7 @@ export default function PostDetailScreen() {
       toValue: 0,
       duration: 300,
       easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -516,7 +571,9 @@ export default function PostDetailScreen() {
                 </Text>
               )}
             </View>
-            <Text style={styles.commentAuthorName}>{comment.authorName}</Text>
+            <TouchableOpacity onPress={() => handleViewCommentAuthorProfile(comment.authorEmail)}>
+              <Text style={[styles.commentAuthorName, styles.clickableAuthorName]}>{comment.authorName}</Text>
+            </TouchableOpacity>
             <Text style={styles.commentTime}>{formatCommentDate(comment.createdAt)}</Text>
           </View>
         </View>
@@ -554,6 +611,18 @@ export default function PostDetailScreen() {
         pathname: './ViewProfileScreen',
         params: { 
           email: recipe.authorEmail,
+          currentUserEmail: userData?.email || ''
+        }
+      });
+    }
+  };
+
+  const handleViewCommentAuthorProfile = (authorEmail: string) => {
+    if (authorEmail) {
+      router.push({
+        pathname: './ViewProfileScreen',
+        params: { 
+          email: authorEmail,
           currentUserEmail: userData?.email || ''
         }
       });
@@ -752,7 +821,7 @@ export default function PostDetailScreen() {
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        keyboardVerticalOffset={0}
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
@@ -838,10 +907,11 @@ export default function PostDetailScreen() {
               <Text style={styles.description}>{recipe.description}</Text>
             </View>
 
-            {/* Voting Section */}
-            {voteStatusLoaded ? (
-              <View style={styles.votingSection}>
-                <View style={styles.votingControls}>
+            {/* Voting and Comments Section */}
+            <View style={styles.actionsContainer}>
+              {/* Voting Controls */}
+              {voteStatusLoaded ? (
+                <View style={styles.votingSection}>
                   <TouchableOpacity 
                     style={[styles.voteButton, recipe.userVote === 'upvote' && styles.voteButtonActive]}
                     onPress={() => handleVote('upvote')}
@@ -862,10 +932,8 @@ export default function PostDetailScreen() {
                     <Text style={[styles.voteIcon, recipe.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-            ) : (
-              <View style={styles.votingSection}>
-                <View style={styles.votingControls}>
+              ) : (
+                <View style={styles.votingSection}>
                   <View style={[styles.voteButton, { opacity: 0.5 }]}>
                     <Text style={styles.voteIcon}>▲</Text>
                   </View>
@@ -880,18 +948,18 @@ export default function PostDetailScreen() {
                     <Text style={styles.voteIcon}>▼</Text>
                   </View>
                 </View>
+              )}
+
+              {/* Comment Count */}
+              <View style={styles.commentSection}>
+                <Text style={styles.commentCountIcon}>💬</Text>
+                <Text style={styles.commentCountText}>{commentStats.totalComments}</Text>
               </View>
-            )}
+            </View>
           </View>
 
           {/* Comments Section */}
           <View style={styles.commentsSection}>
-            <View style={styles.commentsSectionHeader}>
-              <Text style={styles.commentsSectionTitle}>
-                Comments ({commentStats.totalComments})
-              </Text>
-            </View>
-
             {commentsLoaded ? (
               comments.length > 0 ? (
                 <View style={styles.commentsList}>
@@ -910,21 +978,35 @@ export default function PostDetailScreen() {
           </View>
           
           {/* Add dynamic padding at the bottom for the fixed input and keyboard */}
-          <View style={{ height: Math.max(100, keyboardHeight + 80) }} />
+          <Animated.View style={{ 
+            height: keyboardAnimatedValue.interpolate({
+              inputRange: [0, 400], 
+              outputRange: [100, 180],
+              extrapolate: 'clamp'
+            })
+          }} />
         </ScrollView>
 
         {/* Fixed Comment Input */}
         <Animated.View style={[
           styles.commentInputContainer,
           {
-            bottom: keyboardHeight, // Move input above keyboard
-            backgroundColor: isKeyboardVisible ? '#f8f9fa' : 'white', // Slight highlight when active
-            transform: [{
-              translateY: slideAnimation.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, -10],
-              }),
-            }],
+            backgroundColor: isKeyboardVisible ? '#f8f9fa' : 'white',
+            transform: [
+              {
+                translateY: Animated.add(
+                  keyboardAnimatedValue.interpolate({
+                    inputRange: [0, 400],
+                    outputRange: [0, -400],
+                    extrapolate: 'clamp'
+                  }),
+                  slideAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -10],
+                  })
+                )
+              }
+            ],
           }
         ]}>
           {replyingTo && (
@@ -1246,20 +1328,41 @@ const styles = StyleSheet.create({
     height: 40,                  
     alignSelf: 'flex-start',     
   },
+  commentSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 8,
+    paddingBottom: 5,
+    paddingHorizontal: 15,
+    backgroundColor: '#fafafa',
+    marginTop: 8,
+    borderRadius: 20,
+    width: 60,
+    height: 40,                  
+    alignSelf: 'flex-start',   
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 15,
+  },
   votingControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    flex: 1,
   },
   voteButton: {
     alignItems: 'center',
     paddingVertical: 4,
-    paddingHorizontal: 6,
+    paddingHorizontal: 6,        
     borderRadius: 15,
     backgroundColor: '#f8f8f8',
-    minWidth: 30,
+    minWidth: 30,                
     justifyContent: 'center',
-    marginHorizontal: 2,
+    marginHorizontal: 2,         
   },
   voteButtonActive: {
     backgroundColor: '#ff8c00',
@@ -1274,14 +1377,23 @@ const styles = StyleSheet.create({
   },
   netVotes: {
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 8,        
     backgroundColor: '#e8f4f8',
     borderRadius: 12,
-    minWidth: 30,
+    minWidth: 30,                
     alignItems: 'center',
-    marginHorizontal: 2,
+    marginHorizontal: 2,         
   },
   netVotesText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  commentCountIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  commentCountText: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
@@ -1301,19 +1413,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  commentsSectionHeader: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  commentsSectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
   commentsList: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingVertical: 20,
   },
   noCommentsContainer: {
     padding: 40,
@@ -1334,7 +1436,6 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   
-  // Comment Item Styles
   commentItem: {
     paddingVertical: 15,
     borderBottomWidth: 1,
@@ -1381,6 +1482,9 @@ const styles = StyleSheet.create({
     color: '#333',
     marginRight: 10,
   },
+  clickableAuthorName: {
+    color: '#000000ff',
+  },
   commentTime: {
     fontSize: 12,
     color: '#999',
@@ -1405,7 +1509,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   
-  // Fixed Comment Input Styles
   commentInputContainer: {
     position: 'absolute',
     bottom: 0,
@@ -1492,6 +1595,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: 60,
+    marginBottom: 20,
   },
   postButtonDisabled: {
     backgroundColor: '#cccccc',

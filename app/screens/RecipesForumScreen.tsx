@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, Keyboard, Modal, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
@@ -27,6 +27,7 @@ interface Recipe {
   downvotes?: number;
   created_at: string;
   userVote?: 'upvote' | 'downvote' | null;
+  commentCount?: number;
 }
 
 export default function RecipesForumScreen() {
@@ -161,6 +162,30 @@ export default function RecipesForumScreen() {
           } catch (error) {
             console.error('Error loading vote statuses:', error);
           }
+        }
+
+        // Load comment counts for all recipes
+        try {
+          const commentPromises = recipesWithIds.map(async (recipe: any) => {
+            try {
+              const commentResponse = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/comments/stats`);
+              const commentData = await commentResponse.json();
+              
+              if (commentData.success) {
+                return {
+                  ...recipe,
+                  commentCount: commentData.stats.totalComments
+                };
+              }
+            } catch (commentError) {
+              console.error('Error loading comment count for recipe:', recipe.id, commentError);
+            }
+            return { ...recipe, commentCount: 0 };
+          });
+          
+          recipesWithIds = await Promise.all(commentPromises);
+        } catch (error) {
+          console.error('Error loading comment counts:', error);
         }
         
         setRecipes(recipesWithIds);
@@ -405,33 +430,42 @@ export default function RecipesForumScreen() {
       {/* Spacing between card content and voting section */}
       <View style={{ height: 20 }} />
       
-      {/* Voting Section */}
-      <View style={styles.votingSection}>
-        <TouchableOpacity 
-          style={[styles.voteButton, item.userVote === 'upvote' && styles.voteButtonActive]}
-          onPress={(e) => {
-            e.stopPropagation();
-            handleVote(item.id?.toString() || '', 'upvote');
-          }}
-        >
-          <Text style={[styles.voteIcon, item.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.netVotes}>
-          <Text style={styles.netVotesText}>
-            {(item.upvotes || 0) - (item.downvotes || 0)}
-          </Text>
+      {/* Voting and Comments Section */}
+      <View style={styles.actionsContainer}>
+        {/* Voting Section */}
+        <View style={styles.votingSection}>
+          <TouchableOpacity 
+            style={[styles.voteButton, item.userVote === 'upvote' && styles.voteButtonActive]}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleVote(item.id?.toString() || '', 'upvote');
+            }}
+          >
+            <Text style={[styles.voteIcon, item.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.netVotes}>
+            <Text style={styles.netVotesText}>
+              {(item.upvotes || 0) - (item.downvotes || 0)}
+            </Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.voteButton, item.userVote === 'downvote' && styles.voteButtonActive]}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleVote(item.id?.toString() || '', 'downvote');
+            }}
+          >
+            <Text style={[styles.voteIcon, item.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
+          </TouchableOpacity>
         </View>
-        
-        <TouchableOpacity 
-          style={[styles.voteButton, item.userVote === 'downvote' && styles.voteButtonActive]}
-          onPress={(e) => {
-            e.stopPropagation();
-            handleVote(item.id?.toString() || '', 'downvote');
-          }}
-        >
-          <Text style={[styles.voteIcon, item.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
-        </TouchableOpacity>
+
+        {/* Comment Count Section */}
+        <View style={styles.commentSection}>
+          <Text style={styles.commentCountIcon}>💬</Text>
+          <Text style={styles.commentCountText}>{item.commentCount || 0}</Text>
+        </View>
       </View>
     </View>
   );
@@ -788,7 +822,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     width: 110,
     height: 40,                  
-    alignSelf: 'flex-start',     
+    alignSelf: 'flex-start',   
+  },
+  commentSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 8,
+    paddingBottom: 5,
+    paddingHorizontal: 15,
+    backgroundColor: '#fafafa',
+    marginTop: 8,
+    borderRadius: 20,
+    width: 60,
+    height: 40,                  
+    alignSelf: 'flex-start',   
   },
   voteButton: {
     alignItems: 'center',
@@ -821,6 +869,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,         
   },
   netVotesText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  commentCountIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  commentCountText: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#333',

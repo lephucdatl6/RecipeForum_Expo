@@ -323,10 +323,20 @@ app.put('/api/users/profile/:email', async (req, res) => {
           }
         );
 
+        // Update comments collection when email changes
+        const commentEmailUpdateResult = await Comment.updateMany(
+          { authorEmail: email },
+          { 
+            authorEmail: newEmail,
+            authorName: username 
+          }
+        );
+
         // console.log(`Updated authorEmail in ${mongoUpdateResult.modifiedCount} recipes`);
         // console.log(`Updated votedUsers email in ${voteUpdateResult.modifiedCount} recipes`);
+        // console.log(`Updated authorEmail in ${commentEmailUpdateResult.modifiedCount} comments`);
       } catch (mongoErr) {
-        console.error('Error updating MongoDB recipes:', mongoErr);
+        console.error('Error updating MongoDB recipes and comments:', mongoErr);
       }
     } else if (username) {
       // If only username changed, update just the author field
@@ -335,8 +345,17 @@ app.put('/api/users/profile/:email', async (req, res) => {
           { authorEmail: email },
           { author: username }
         );
+
+        // Update comments collection when username changes
+        const commentUsernameUpdateResult = await Comment.updateMany(
+          { authorEmail: email },
+          { authorName: username }
+        );
+
+        console.log(`Updated author name in ${mongoUpdateResult.modifiedCount} recipes`);
+        console.log(`Updated authorName in ${commentUsernameUpdateResult.modifiedCount} comments`);
       } catch (mongoErr) {
-        // console.error('Error updating MongoDB recipes username:', mongoErr);
+        console.error('Error updating MongoDB recipes and comments username:', mongoErr);
       }
     }
 
