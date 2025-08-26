@@ -123,6 +123,53 @@ const recipeSchema = new mongoose.Schema({
 
 const Recipe = mongoose.model('Recipe', recipeSchema);
 
+// Comment Schema for MongoDB
+const commentSchema = new mongoose.Schema({
+  recipeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Recipe',
+    required: true,
+    index: true // For fast lookups
+  },
+  authorEmail: {
+    type: String,
+    required: true
+  },
+  authorName: {
+    type: String,
+    required: true
+  },
+  content: {
+    type: String,
+    required: true,
+    maxlength: 1000 // Prevent long comments
+  },
+  parentCommentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Comment',
+    default: null // For nested replies
+  },
+  isActive: {
+    type: Number,
+    default: 1,
+    enum: [0, 1]
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: null
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  }
+});
+
+const Comment = mongoose.model('Comment', commentSchema);
+
 // Migration function to ensure all recipes have votedUsers field
 async function ensureVotedUsersField() {
   try {
@@ -940,6 +987,359 @@ app.delete('/api/recipes/:id', async (req, res) => {
   }
 });
 
+// ==================== COMMENT ENDPOINTS (MongoDB) ====================
+
+// Get comments for a specific recipe
+app.get('/api/recipes/:id/comments', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 20 } = req.query; // Default pagination
+
+    // Validate recipe exists and is active
+    const recipe = await Recipe.findOne({ _id: id, isActive: 1 });
+    if (!recipe) {
+      return res.status(404).json({
+        success: false,
+        error: 'Recipe not found or has been removed'
+      });
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get comments for this recipe (only top-level comments first)
+    const comments = await Comment.find({ 
+      recipeId: id, 
+      isActive: 1,
+      parentCommentId: null // Only top-level comments
+    })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(parseInt(limit));
+
+    // Get total count for pagination
+    const totalComments = await Comment.countDocuments({ 
+      recipeId: id, 
+      isActive: 1,
+      parentCommentId: null
+    });
+
+    // Get replies for each comment
+    const commentsWithReplies = await Promise.all(
+      comments.map(async (comment) => {
+        const replies = await Comment.find({
+          parentCommentId: comment._id,
+          isActive: 1
+        }).sort({ createdAt: 1 }); // Replies in chronological order
+
+        return {
+          ...comment.toObject(),
+          replies: replies
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      comments: commentsWithReplies,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalComments / parseInt(limit)),
+        totalComments,
+        hasNextPage: skip + comments.length < totalComments,
+        hasPreviousPage: parseInt(page) > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch comments',
+      details: error.message
+    });
+  }
+});
+
+// Post a new comment
+app.post('/api/recipes/:id/comments', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, authorEmail, authorName, parentCommentId = null } = req.body;
+
+    // Validate required fields
+    if (!content || !authorEmail || !authorName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: content, authorEmail, authorName'
+      });
+    }
+
+    // Validate content length
+    if (content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Comment content cannot be empty'
+      });
+    }
+
+    if (content.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Comment content cannot exceed 1000 characters'
+      });
+    }
+
+    // Validate recipe exists and is active
+    const recipe = await Recipe.findOne({ _id: id, isActive: 1 });
+    if (!recipe) {
+      return res.status(404).json({
+        success: false,
+        error: 'Recipe not found or has been removed'
+      });
+    }
+
+    // If replying to a comment, validate parent comment exists
+    if (parentCommentId) {
+      const parentComment = await Comment.findOne({ 
+        _id: parentCommentId, 
+        recipeId: id,
+        isActive: 1 
+      });
+      
+      if (!parentComment) {
+        return res.status(404).json({
+          success: false,
+          error: 'Parent comment not found'
+        });
+      }
+    }
+
+    // Create new comment
+    const comment = new Comment({
+      recipeId: id,
+      content: content.trim(),
+      authorEmail,
+      authorName,
+      parentCommentId
+    });
+
+    const savedComment = await comment.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Comment posted successfully!',
+      comment: savedComment
+    });
+
+  } catch (error) {
+    console.error('Error posting comment:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to post comment',
+      details: error.message
+    });
+  }
+});
+
+// Update/Edit a comment
+app.put('/api/comments/:commentId', async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const { content, userEmail } = req.body;
+
+    // Validate required fields
+    if (!content || !userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: content, userEmail'
+      });
+    }
+
+    // Validate content
+    if (content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Comment content cannot be empty'
+      });
+    }
+
+    if (content.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Comment content cannot exceed 1000 characters'
+      });
+    }
+
+    // Find comment and verify ownership
+    const comment = await Comment.findOne({ 
+      _id: commentId, 
+      isActive: 1 
+    });
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Comment not found'
+      });
+    }
+
+    // Check if user owns this comment
+    if (comment.authorEmail !== userEmail) {
+      return res.status(403).json({
+        success: false,
+        error: 'You can only edit your own comments'
+      });
+    }
+
+    // Update comment
+    const updatedComment = await Comment.findByIdAndUpdate(
+      commentId,
+      {
+        content: content.trim(),
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Comment updated successfully!',
+      comment: updatedComment
+    });
+
+  } catch (error) {
+    console.error('Error updating comment:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update comment',
+      details: error.message
+    });
+  }
+});
+
+// Soft delete a comment
+app.delete('/api/comments/:commentId', async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const { userEmail } = req.body;
+
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'User email is required'
+      });
+    }
+
+    // Find comment and verify ownership
+    const comment = await Comment.findOne({ 
+      _id: commentId, 
+      isActive: 1 
+    });
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Comment not found'
+      });
+    }
+
+    // Check if user owns this comment
+    if (comment.authorEmail !== userEmail) {
+      return res.status(403).json({
+        success: false,
+        error: 'You can only delete your own comments'
+      });
+    }
+
+    // Soft delete the comment
+    const deletedComment = await Comment.findByIdAndUpdate(
+      commentId,
+      {
+        isActive: 0,
+        deletedAt: new Date(),
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+
+    // Also soft delete any replies to this comment
+    await Comment.updateMany(
+      { parentCommentId: commentId, isActive: 1 },
+      {
+        isActive: 0,
+        deletedAt: new Date(),
+        updatedAt: new Date()
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Comment deleted successfully!',
+      deletedComment: {
+        id: deletedComment._id,
+        content: deletedComment.content,
+        author: deletedComment.authorName,
+        deletedAt: deletedComment.deletedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete comment',
+      details: error.message
+    });
+  }
+});
+
+// Get comment statistics for a recipe
+app.get('/api/recipes/:id/comments/stats', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate recipe exists
+    const recipe = await Recipe.findOne({ _id: id, isActive: 1 });
+    if (!recipe) {
+      return res.status(404).json({
+        success: false,
+        error: 'Recipe not found or has been removed'
+      });
+    }
+
+    // Get comment statistics
+    const totalComments = await Comment.countDocuments({ 
+      recipeId: id, 
+      isActive: 1 
+    });
+
+    const topLevelComments = await Comment.countDocuments({ 
+      recipeId: id, 
+      isActive: 1,
+      parentCommentId: null
+    });
+
+    const replies = totalComments - topLevelComments;
+
+    res.json({
+      success: true,
+      stats: {
+        totalComments,
+        topLevelComments,
+        replies
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching comment stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch comment statistics',
+      details: error.message
+    });
+  }
+});
+
 // ==================== ADMIN ENDPOINTS ====================
 
 // Database Analytics - Demonstrates benefits of hybrid architecture
@@ -1091,6 +1491,94 @@ app.post('/api/admin/cleanup-votes', async (req, res) => {
       success: false,
       error: 'Failed to cleanup votes',
       details: error.message
+    });
+  }
+});
+
+// Get all deleted/inactive comments (admin)
+app.get('/api/admin/comments/deleted', async (req, res) => {
+  try {
+    const deletedComments = await Comment.find({ isActive: 0 })
+      .populate('recipeId', 'title')
+      .sort({ deletedAt: -1 });
+    
+    res.json({
+      success: true,
+      count: deletedComments.length,
+      comments: deletedComments
+    });
+  } catch (error) {
+    console.error('Error fetching deleted comments:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch deleted comments',
+      details: error.message 
+    });
+  }
+});
+
+// Restore a deleted comment (admin)
+app.patch('/api/admin/comments/:commentId/restore', async (req, res) => {
+  try {
+    const comment = await Comment.findOneAndUpdate(
+      { _id: req.params.commentId, isActive: 0 },
+      { 
+        isActive: 1,
+        deletedAt: null,
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+    
+    if (!comment) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Deleted comment not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Comment restored successfully!',
+      comment: {
+        id: comment._id,
+        content: comment.content,
+        author: comment.authorName
+      }
+    });
+  } catch (error) {
+    console.error('Error restoring comment:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to restore comment',
+      details: error.message 
+    });
+  }
+});
+
+// Get all comments for admin (active and inactive)
+app.get('/api/admin/comments/all', async (req, res) => {
+  try {
+    const allComments = await Comment.find()
+      .populate('recipeId', 'title')
+      .sort({ createdAt: -1 });
+    
+    const activeCount = allComments.filter(c => c.isActive === 1).length;
+    const deletedCount = allComments.filter(c => c.isActive === 0).length;
+    
+    res.json({
+      success: true,
+      totalCount: allComments.length,
+      activeCount,
+      deletedCount,
+      comments: allComments
+    });
+  } catch (error) {
+    console.error('Error fetching all comments:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch all comments',
+      details: error.message 
     });
   }
 });

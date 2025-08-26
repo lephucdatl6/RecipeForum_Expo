@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Easing, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 
 interface Recipe {
@@ -30,6 +31,19 @@ interface UserData {
   created_at?: string;
 }
 
+interface Comment {
+  _id: string;
+  recipeId: string;
+  authorEmail: string;
+  authorName: string;
+  content: string;
+  parentCommentId?: string;
+  isActive: number;
+  createdAt: string;
+  updatedAt?: string;
+  replies?: Comment[];
+}
+
 export default function PostDetailScreen() {
   const params = useLocalSearchParams();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
@@ -39,6 +53,26 @@ export default function PostDetailScreen() {
   const [originalUserData, setOriginalUserData] = useState<UserData | null>(null);
   const [voteStatusLoaded, setVoteStatusLoaded] = useState(false);
   const [authorProfileImage, setAuthorProfileImage] = useState<string | null>(null);
+  
+  // Comment-related states
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyingToAuthor, setReplyingToAuthor] = useState<string>('');
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
+  const [commentStats, setCommentStats] = useState({ totalComments: 0, topLevelComments: 0, replies: 0 });
+  
+  // Comment profile images cache
+  const [commentProfileImages, setCommentProfileImages] = useState<{[email: string]: string | null}>({});
+  
+  // Animation for comment input
+  const slideAnimation = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  // Keyboard handling
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
     if (params.recipe) {
@@ -204,6 +238,311 @@ export default function PostDetailScreen() {
 
     loadAuthorProfileImage();
   }, [recipe?.authorEmail, authorProfileImage]);
+
+  // Load comments when recipe is loaded
+  useEffect(() => {
+    if (recipe?.id) {
+      loadComments();
+      loadCommentStats();
+    }
+  }, [recipe?.id]);
+
+  // Keyboard event listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setIsKeyboardVisible(true);
+        // Don't auto-scroll - just let the input move up
+      }
+    );
+
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        setIsKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  // Load user data from storage
+  useFocusEffect(
+    useCallback(() => {
+      const loadUserData = async () => {
+        try {
+          const storedUserData = await AsyncStorage.getItem('userData');
+          if (storedUserData) {
+            const parsedData = JSON.parse(storedUserData);
+            setUserData(parsedData);
+            setOriginalUserData(parsedData);
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error);
+        }
+      };
+
+      loadUserData();
+    }, [])
+  );
+
+  const loadComments = async () => {
+    if (!recipe?.id) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/comments?page=1&limit=50`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setComments(data.comments);
+      }
+    } catch (error) {
+      console.error('Error loading comments:', error);
+    } finally {
+      setCommentsLoaded(true);
+    }
+  };
+
+  const loadCommentStats = async () => {
+    if (!recipe?.id) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/comments/stats`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setCommentStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Error loading comment stats:', error);
+    }
+  };
+
+  const handlePostComment = async () => {
+    if (!commentText.trim() || !userData || !recipe) {
+      Alert.alert('Error', 'Please enter a comment');
+      return;
+    }
+
+    if (commentText.length > 1000) {
+      Alert.alert('Error', 'Comment cannot exceed 1000 characters');
+      return;
+    }
+
+    setIsPostingComment(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: commentText.trim(),
+          authorEmail: userData.email,
+          authorName: userData.username,
+          parentCommentId: replyingTo
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setCommentText('');
+        setReplyingTo(null);
+        setReplyingToAuthor('');
+        
+        // Reload comments and stats
+        await loadComments();
+        await loadCommentStats();
+        
+        // Animate input back down
+        Animated.timing(slideAnimation, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }).start();
+      } else {
+        Alert.alert('Error', data.error || 'Failed to post comment');
+      }
+    } catch (error) {
+      console.error('Error posting comment:', error);
+      Alert.alert('Error', 'Failed to post comment. Please try again.');
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
+
+  const handleReply = (commentId: string, authorName: string) => {
+    setReplyingTo(commentId);
+    setReplyingToAuthor(authorName);
+    setCommentText(`@${authorName} `);
+    
+    // Animate input up and auto-scroll
+    Animated.timing(slideAnimation, {
+      toValue: 1,
+      duration: 300,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+    
+    // Scroll to bottom to show the reply input
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+    setReplyingToAuthor('');
+    setCommentText('');
+    
+    // Animate input back down
+    Animated.timing(slideAnimation, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const formatCommentDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+      
+      if (diffInMinutes < 1) return 'just now';
+      if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+      
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      if (diffInHours < 24) return `${diffInHours}h ago`;
+      
+      const diffInDays = Math.floor(diffInHours / 24);
+      if (diffInDays < 7) return `${diffInDays}d ago`;
+      
+      return date.toLocaleDateString();
+    } catch {
+      return 'Unknown time';
+    }
+  };
+
+  const loadCommentProfileImage = async (email: string) => {
+    // Check if already loaded or loading
+    if (commentProfileImages[email] !== undefined) {
+      return commentProfileImages[email];
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/profile/${email}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.user.profileImageUrl) {
+          setCommentProfileImages(prev => ({
+            ...prev,
+            [email]: data.user.profileImageUrl
+          }));
+          return data.user.profileImageUrl;
+        } else {
+          // Set to null to indicate no image available
+          setCommentProfileImages(prev => ({
+            ...prev,
+            [email]: null
+          }));
+          return null;
+        }
+      }
+    } catch (error) {
+      console.log('Comment profile image not found for:', email);
+      setCommentProfileImages(prev => ({
+        ...prev,
+        [email]: null
+      }));
+    }
+    return null;
+  };
+
+  // Load profile images when comments are loaded
+  useEffect(() => {
+    if (comments.length > 0) {
+      const loadAllCommentImages = async () => {
+        const emailsToLoad = new Set<string>();
+        
+        // Collect all unique emails from comments and replies
+        comments.forEach(comment => {
+          emailsToLoad.add(comment.authorEmail);
+          if (comment.replies) {
+            comment.replies.forEach(reply => {
+              emailsToLoad.add(reply.authorEmail);
+            });
+          }
+        });
+
+        // Load images for emails we haven't processed yet
+        for (const email of emailsToLoad) {
+          if (commentProfileImages[email] === undefined) {
+            loadCommentProfileImage(email);
+          }
+        }
+      };
+
+      loadAllCommentImages();
+    }
+  }, [comments, commentProfileImages]);
+
+  const renderComment = (comment: Comment, isReply: boolean = false) => {
+    const profileImage = commentProfileImages[comment.authorEmail];
+    
+    return (
+      <View key={comment._id} style={[styles.commentItem, isReply && styles.replyItem]}>
+        <View style={styles.commentHeader}>
+          <View style={styles.commentAuthorContainer}>
+            <View style={styles.commentAuthorAvatar}>
+              {profileImage ? (
+                <Image 
+                  source={{ uri: profileImage }} 
+                  style={styles.commentAuthorImage}
+                />
+              ) : (
+                <Text style={styles.commentAuthorInitials}>
+                  {comment.authorName.substring(0, 2).toUpperCase()}
+                </Text>
+              )}
+            </View>
+            <Text style={styles.commentAuthorName}>{comment.authorName}</Text>
+            <Text style={styles.commentTime}>{formatCommentDate(comment.createdAt)}</Text>
+          </View>
+        </View>
+        
+        <Text style={styles.commentContent}>{comment.content}</Text>
+        
+        {!isReply && (
+          <TouchableOpacity 
+            style={styles.replyButton}
+            onPress={() => handleReply(comment._id, comment.authorName)}
+          >
+            <Text style={styles.replyButtonText}>Reply</Text>
+          </TouchableOpacity>
+        )}
+        
+        {comment.replies && comment.replies.length > 0 && (
+          <View style={styles.repliesContainer}>
+            {comment.replies.map((reply) => renderComment(reply, true))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const handleInputFocus = () => {
+  };
 
   const handleBack = () => {
     router.back();
@@ -410,169 +749,263 @@ export default function PostDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Post Details</Text>
-        <View style={styles.placeholder} />
-      </View>
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>Post Details</Text>
+          <View style={styles.placeholder} />
+        </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.recipeCard}>
-          <View style={styles.recipeHeader}>
-            <View style={styles.titleRow}>
-              <Text style={styles.recipeTitle}>{recipe.title}</Text>
-              {isOwner && (
-                <TouchableOpacity style={styles.moreOptionsButton} onPress={handleMoreOptions}>
-                  <Text style={styles.moreOptionsButtonText}>⋯</Text>
-                </TouchableOpacity>
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.scrollView} 
+          contentContainerStyle={styles.contentContainer}
+        >
+          <View style={styles.recipeCard}>
+            <View style={styles.recipeHeader}>
+              <View style={styles.titleRow}>
+                <Text style={styles.recipeTitle}>{recipe.title}</Text>
+                {isOwner && (
+                  <TouchableOpacity style={styles.moreOptionsButton} onPress={handleMoreOptions}>
+                    <Text style={styles.moreOptionsButtonText}>⋯</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View style={styles.categoryBadge}>
+                <Text style={styles.categoryText}>{recipe.category}</Text>
+              </View>
+            </View>
+
+            <View style={styles.metaInfo}>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>⏱️ Cooking Time:</Text>
+                <Text style={styles.metaValue}>{recipe.cookingTime} minutes</Text>
+              </View>
+              {recipe.difficulty && (
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>🍽️ Difficulty:</Text>
+                  <Text style={[styles.metaValue, styles.difficultyValue, { color: getDifficultyColor(recipe.difficulty) }]}>
+                    {recipe.difficulty}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>👤 Author:</Text>
+                <View style={styles.authorContainer}>
+                  <View style={styles.authorProfileImageContainer}>
+                    {authorProfileImage ? (
+                      <Image 
+                        source={{ uri: authorProfileImage }} 
+                        style={styles.authorProfileImage}
+                      />
+                    ) : (
+                      <View style={[styles.authorProfileImage, styles.authorInitials]}>
+                        <Text style={styles.authorInitialsText}>
+                          {recipe.author.substring(0, 2).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <TouchableOpacity onPress={handleViewAuthorProfile}>
+                    <Text style={[styles.metaValue, styles.authorName]}>{recipe.author}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>{getDateInfo(recipe).posted.label}</Text>
+                <Text style={styles.metaValue}>
+                  {getDateInfo(recipe).posted.value}
+                </Text>
+              </View>
+              {getDateInfo(recipe).edited && (
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>{getDateInfo(recipe).edited!.label}</Text>
+                  <Text style={[styles.metaValue, styles.editedText]}>
+                    {getDateInfo(recipe).edited!.value}
+                  </Text>
+                </View>
               )}
             </View>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>{recipe.category}</Text>
-            </View>
-          </View>
 
-          <View style={styles.metaInfo}>
-            <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>⏱️ Cooking Time:</Text>
-              <Text style={styles.metaValue}>{recipe.cookingTime} minutes</Text>
+            <View style={styles.descriptionSection}>
+              <Text style={styles.sectionTitle}>Description</Text>
+              <Text style={styles.description}>{recipe.description}</Text>
             </View>
-            {recipe.difficulty && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>🍽️ Difficulty:</Text>
-                <Text style={[styles.metaValue, styles.difficultyValue, { color: getDifficultyColor(recipe.difficulty) }]}>
-                  {recipe.difficulty}
-                </Text>
+
+            {/* Voting Section */}
+            {voteStatusLoaded ? (
+              <View style={styles.votingSection}>
+                <View style={styles.votingControls}>
+                  <TouchableOpacity 
+                    style={[styles.voteButton, recipe.userVote === 'upvote' && styles.voteButtonActive]}
+                    onPress={() => handleVote('upvote')}
+                  >
+                    <Text style={[styles.voteIcon, recipe.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
+                  </TouchableOpacity>
+                  
+                  <View style={styles.netVotes}>
+                    <Text style={styles.netVotesText}>
+                      {(recipe.upvotes || 0) - (recipe.downvotes || 0)}
+                    </Text>
+                  </View>
+                  
+                  <TouchableOpacity 
+                    style={[styles.voteButton, recipe.userVote === 'downvote' && styles.voteButtonActive]}
+                    onPress={() => handleVote('downvote')}
+                  >
+                    <Text style={[styles.voteIcon, recipe.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.votingSection}>
+                <View style={styles.votingControls}>
+                  <View style={[styles.voteButton, { opacity: 0.5 }]}>
+                    <Text style={styles.voteIcon}>▲</Text>
+                  </View>
+                  
+                  <View style={styles.netVotes}>
+                    <Text style={styles.netVotesText}>
+                      {(recipe.upvotes || 0) - (recipe.downvotes || 0)}
+                    </Text>
+                  </View>
+                  
+                  <View style={[styles.voteButton, { opacity: 0.5 }]}>
+                    <Text style={styles.voteIcon}>▼</Text>
+                  </View>
+                </View>
               </View>
             )}
-            <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>👤 Author:</Text>
-              <View style={styles.authorContainer}>
-                <View style={styles.authorProfileImageContainer}>
-                  {authorProfileImage ? (
-                    <Image 
-                      source={{ uri: authorProfileImage }} 
-                      style={styles.authorProfileImage}
-                    />
-                  ) : (
-                    <View style={[styles.authorProfileImage, styles.authorInitials]}>
-                      <Text style={styles.authorInitialsText}>
-                        {recipe.author.substring(0, 2).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <TouchableOpacity onPress={handleViewAuthorProfile}>
-                  <Text style={[styles.metaValue, styles.authorName]}>{recipe.author}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>{getDateInfo(recipe).posted.label}</Text>
-              <Text style={styles.metaValue}>
-                {getDateInfo(recipe).posted.value}
+          </View>
+
+          {/* Comments Section */}
+          <View style={styles.commentsSection}>
+            <View style={styles.commentsSectionHeader}>
+              <Text style={styles.commentsSectionTitle}>
+                Comments ({commentStats.totalComments})
               </Text>
             </View>
-            {getDateInfo(recipe).edited && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>{getDateInfo(recipe).edited!.label}</Text>
-                <Text style={[styles.metaValue, styles.editedText]}>
-                  {getDateInfo(recipe).edited!.value}
-                </Text>
+
+            {commentsLoaded ? (
+              comments.length > 0 ? (
+                <View style={styles.commentsList}>
+                  {comments.map((comment) => renderComment(comment))}
+                </View>
+              ) : (
+                <View style={styles.noCommentsContainer}>
+                  <Text style={styles.noCommentsText}>No comments yet. Be the first to comment!</Text>
+                </View>
+              )
+            ) : (
+              <View style={styles.loadingComments}>
+                <Text style={styles.loadingText}>Loading comments...</Text>
               </View>
             )}
           </View>
+          
+          {/* Add dynamic padding at the bottom for the fixed input and keyboard */}
+          <View style={{ height: Math.max(100, keyboardHeight + 80) }} />
+        </ScrollView>
 
-          <View style={styles.descriptionSection}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.description}>{recipe.description}</Text>
-          </View>
-
-          {/* Voting Section */}
-          {voteStatusLoaded ? (
-            <View style={styles.votingSection}>
-              <View style={styles.votingControls}>
-                <TouchableOpacity 
-                  style={[styles.voteButton, recipe.userVote === 'upvote' && styles.voteButtonActive]}
-                  onPress={() => handleVote('upvote')}
-                >
-                  <Text style={[styles.voteIcon, recipe.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
-                </TouchableOpacity>
-                
-                <View style={styles.netVotes}>
-                  <Text style={styles.netVotesText}>
-                    {(recipe.upvotes || 0) - (recipe.downvotes || 0)}
-                  </Text>
-                </View>
-                
-                <TouchableOpacity 
-                  style={[styles.voteButton, recipe.userVote === 'downvote' && styles.voteButtonActive]}
-                  onPress={() => handleVote('downvote')}
-                >
-                  <Text style={[styles.voteIcon, recipe.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.votingSection}>
-              <View style={styles.votingControls}>
-                <View style={[styles.voteButton, { opacity: 0.5 }]}>
-                  <Text style={styles.voteIcon}>▲</Text>
-                </View>
-                
-                <View style={styles.netVotes}>
-                  <Text style={styles.netVotesText}>
-                    {(recipe.upvotes || 0) - (recipe.downvotes || 0)}
-                  </Text>
-                </View>
-                
-                <View style={[styles.voteButton, { opacity: 0.5 }]}>
-                  <Text style={styles.voteIcon}>▼</Text>
-                </View>
-              </View>
+        {/* Fixed Comment Input */}
+        <Animated.View style={[
+          styles.commentInputContainer,
+          {
+            bottom: keyboardHeight, // Move input above keyboard
+            backgroundColor: isKeyboardVisible ? '#f8f9fa' : 'white', // Slight highlight when active
+            transform: [{
+              translateY: slideAnimation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, -10],
+              }),
+            }],
+          }
+        ]}>
+          {replyingTo && (
+            <View style={styles.replyIndicator}>
+              <Text style={styles.replyIndicatorText}>
+                Replying to {replyingToAuthor}
+              </Text>
+              <TouchableOpacity onPress={handleCancelReply} style={styles.cancelReplyButton}>
+                <Text style={styles.cancelReplyText}>✕</Text>
+              </TouchableOpacity>
             </View>
           )}
-        </View>
-      </ScrollView>
-    </View>
+          
+          <View style={styles.commentInputRow}>
+            <View style={styles.commentInputWrapper}>
+              <TextInput
+                style={[
+                  styles.commentInput,
+                  isKeyboardVisible && styles.commentInputFocused
+                ]}
+                placeholder={userData ? "Add your reply..." : "Please login to comment"}
+                placeholderTextColor="#999"
+                value={commentText}
+                onChangeText={setCommentText}
+                onFocus={handleInputFocus}
+                multiline
+                maxLength={1000}
+                editable={!!userData}
+              />
+              <Text style={styles.characterCount}>
+                {commentText.length}/1000
+              </Text>
+            </View>
+            
+            <TouchableOpacity
+              style={[styles.postButton, (!commentText.trim() || isPostingComment || !userData) && styles.postButtonDisabled]}
+              onPress={handlePostComment}
+              disabled={!commentText.trim() || isPostingComment || !userData}
+            >
+              <Text style={[styles.postButtonText, (!commentText.trim() || isPostingComment || !userData) && styles.postButtonTextDisabled]}>
+                {isPostingComment ? '...' : 'Post'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
 
-    {/* More Options Modal */}
-    <Modal
-      transparent={true}
-      visible={showMoreOptions}
-      animationType="fade"
-      onRequestClose={() => setShowMoreOptions(false)}
-    >
-      <TouchableOpacity
-        style={styles.modalOverlay}
-        activeOpacity={1}
-        onPress={() => setShowMoreOptions(false)}
+      {/* More Options Modal */}
+      <Modal
+        transparent={true}
+        visible={showMoreOptions}
+        animationType="fade"
+        onRequestClose={() => setShowMoreOptions(false)}
       >
-        <View style={styles.modalContent}>
-          <TouchableOpacity
-            style={styles.optionButton}
-            onPress={handleEdit}
-          >
-            <Text style={styles.optionText}>Edit post</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.optionSeparator} />
-          
-          <TouchableOpacity
-            style={styles.optionButton}
-            onPress={() => {
-              setShowMoreOptions(false);
-              handleDelete();
-            }}
-          >
-            <Text style={[styles.optionText, styles.deleteText]}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Modal>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMoreOptions(false)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.optionButton}
+              onPress={handleEdit}
+            >
+              <Text style={styles.optionText}>Edit post</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.optionSeparator} />
+            
+            <TouchableOpacity
+              style={styles.optionButton}
+              onPress={() => {
+                setShowMoreOptions(false);
+                handleDelete();
+              }}
+            >
+              <Text style={[styles.optionText, styles.deleteText]}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </>
   );
 }
@@ -852,5 +1285,223 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
+  },
+  
+  // Comments Section Styles
+  commentsSection: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  commentsSectionHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  commentsSectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  commentsList: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  noCommentsContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  noCommentsText: {
+    fontSize: 16,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  loadingComments: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  
+  // Comment Item Styles
+  commentItem: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5',
+  },
+  replyItem: {
+    marginLeft: 20,
+    borderLeftWidth: 2,
+    borderLeftColor: '#e0e0e0',
+    paddingLeft: 15,
+    backgroundColor: '#fafafa',
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  commentHeader: {
+    marginBottom: 8,
+  },
+  commentAuthorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentAuthorAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#4a90e2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  commentAuthorImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  commentAuthorInitials: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  commentAuthorName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginRight: 10,
+  },
+  commentTime: {
+    fontSize: 12,
+    color: '#999',
+  },
+  commentContent: {
+    fontSize: 15,
+    color: '#444',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  replyButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  replyButtonText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  repliesContainer: {
+    marginTop: 10,
+  },
+  
+  // Fixed Comment Input Styles
+  commentInputContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 10,
+  },
+  replyIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f0f8ff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  replyIndicatorText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  cancelReplyButton: {
+    padding: 4,
+  },
+  cancelReplyText: {
+    fontSize: 16,
+    color: '#999',
+    fontWeight: 'bold',
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  commentInputWrapper: {
+    flex: 1,
+    marginRight: 10,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    fontSize: 16,
+    maxHeight: 100,
+    backgroundColor: '#f8f8f8',
+  },
+  commentInputFocused: {
+    borderColor: '#007AFF',
+    backgroundColor: 'white',
+    shadowColor: '#007AFF',
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'right',
+    marginTop: 4,
+  },
+  postButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  postButtonDisabled: {
+    backgroundColor: '#cccccc',
+  },
+  postButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  postButtonTextDisabled: {
+    color: '#999',
   },
 });
