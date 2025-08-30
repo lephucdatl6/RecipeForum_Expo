@@ -302,7 +302,7 @@ export default function CreatePostScreen() {
           disabled={isPosting}
         >
           <Text style={styles.postButtonText}>
-            {isPosting ? `🔄 ${loadingMessage || 'Posting...'}` : '📤 Post Recipe'}
+            {isPosting ? `${loadingMessage || 'Posting...'}` : '📤 Post Recipe'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

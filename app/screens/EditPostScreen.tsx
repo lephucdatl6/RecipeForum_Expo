@@ -141,7 +141,7 @@ export default function EditPostScreen() {
       if (selectedImage && selectedImage !== originalImage) {
         // New image selected - set as pending, will upload async
         imageStatus = 'pending';
-        imageUrl = originalImage; // Keep original for now
+        imageUrl = originalImage;
       } else if (!selectedImage) {
         // Image removed
         imageStatus = 'none';
@@ -333,7 +333,7 @@ export default function EditPostScreen() {
             disabled={isUpdating}
           >
             <Text style={styles.postButtonText}>
-              {isUpdating ? `🔄 ${loadingMessage || 'Updating...'}` : 'Update Recipe'}
+              {isUpdating ? `${loadingMessage || 'Updating...'}` : 'Update Recipe'}
             </Text>
           </TouchableOpacity>
         </View>

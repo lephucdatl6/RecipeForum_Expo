@@ -1,7 +1,7 @@
 import { API_BASE_URL } from '../config/apiConfig';
 
 /**
- * Uploads an image for a recipe in the background and updates the recipe status
+ * Uploads an image for a recipe and updates the recipe status
  * @param recipeId - The ID of the recipe to update
  * @param imageUri - The local URI of the image to upload
  */

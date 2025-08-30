@@ -179,14 +179,14 @@ export default function RecipesForumScreen() {
               
               if (commentData.success) {
                 return {
-                  ...recipe, // Preserve all original fields including imageStatus
+                  ...recipe,
                   commentCount: commentData.stats.totalComments
                 };
               }
             } catch (commentError) {
               console.error('Error loading comment count for recipe:', recipe.id, commentError);
             }
-            return { ...recipe, commentCount: 0 }; // Preserve all fields when adding default commentCount
+            return { ...recipe, commentCount: 0 };
           });
           
           recipesWithIds = await Promise.all(commentPromises);
