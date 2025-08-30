@@ -1,6 +1,7 @@
+import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 
 interface UserData {
@@ -26,12 +27,16 @@ interface Recipe {
   downvotes?: number;
   created_at: string;
   updatedAt?: string | null;
+  image?: string;
 }
 
 export default function EditPostScreen() {
   const params = useLocalSearchParams();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -69,6 +74,9 @@ export default function EditPostScreen() {
           author: recipe.author,
           authorEmail: recipe.authorEmail
         });
+        // Set the original image and current selected image
+        setOriginalImage(recipe.image || null);
+        setSelectedImage(recipe.image || null);
       } catch (error) {
         console.error('Error parsing recipe data:', error);
         Alert.alert('Error', 'Failed to load recipe data. Please try again.');
@@ -78,6 +86,32 @@ export default function EditPostScreen() {
 
   const handleBack = () => {
     router.back();
+  };
+
+  const pickImage = async () => {
+    // Request permission
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+      return;
+    }
+
+    // Pick image
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.6, // Reduced quality for faster upload
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setSelectedImage(result.assets[0].uri);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
   };
 
   const handleUpdatePost = async () => {
@@ -95,6 +129,50 @@ export default function EditPostScreen() {
         return;
       }
 
+      // Handle image upload if image has changed
+      let imageUrl = originalImage; // Keep original image by default
+      
+      // If user selected a new image (different from original)
+      if (selectedImage && selectedImage !== originalImage) {
+        try {
+          setLoadingMessage('Uploading new image...');
+          const formData = new FormData();
+          formData.append('image', {
+            uri: selectedImage,
+            type: 'image/jpeg',
+            name: 'recipe-image.jpg',
+          } as any);
+
+          const imageResponse = await fetch(`${API_BASE_URL}/api/upload-image`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+
+          const imageResult = await imageResponse.json();
+          if (imageResult.success) {
+            imageUrl = imageResult.imageUrl;
+            setLoadingMessage('Updating recipe...');
+          } else {
+            Alert.alert('Warning', 'Failed to upload new image, keeping original image');
+            setLoadingMessage('Updating recipe...');
+          }
+        } catch (imageError) {
+          console.error('Image upload error:', imageError);
+          Alert.alert('Warning', 'Failed to upload new image, keeping original image');
+          setLoadingMessage('Updating recipe...');
+        }
+      }
+      // If user removed the image (selectedImage is null)
+      else if (!selectedImage) {
+        imageUrl = null;
+        setLoadingMessage('Updating recipe...');
+      } else {
+        setLoadingMessage('Updating recipe...');
+      }
+
       // Prepare the updated recipe data
       const recipeData = {
         title: formData.title,
@@ -102,6 +180,7 @@ export default function EditPostScreen() {
         cookingTime: parseInt(formData.cookingTime),
         difficulty: formData.difficulty,
         category: formData.category,
+        image: imageUrl
       };
 
       const response = await fetch(`${API_BASE_URL}/api/recipes/${recipeId}`, {
@@ -139,6 +218,7 @@ export default function EditPostScreen() {
       Alert.alert('Error', 'Network error. Please check your connection and try again.');
     } finally {
       setIsUpdating(false);
+      setLoadingMessage('');
     }
   };
 
@@ -165,6 +245,24 @@ export default function EditPostScreen() {
             value={formData.title}
             onChangeText={(text) => setFormData({...formData, title: text})}
           />
+
+          {/* Image Picker */}
+          <View style={styles.imageSection}>
+            <Text style={styles.imageLabel}>Recipe Image (Optional)</Text>
+            {selectedImage ? (
+              <View style={styles.imageContainer}>
+                <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
+                <TouchableOpacity style={styles.removeImageButton} onPress={removeImage}>
+                  <Text style={styles.removeImageText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                <Text style={styles.imagePickerIcon}>📷</Text>
+                <Text style={styles.imagePickerText}>Add Photo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <TextInput
             style={[styles.input, styles.textArea]}
@@ -247,7 +345,7 @@ export default function EditPostScreen() {
             disabled={isUpdating}
           >
             <Text style={styles.postButtonText}>
-              {isUpdating ? 'Updating...' : 'Update Recipe'}
+              {isUpdating ? `🔄 ${loadingMessage || 'Updating...'}` : 'Update Recipe'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -401,5 +499,59 @@ const styles = StyleSheet.create({
   },
   halfInput: {
     flex: 1,
+  },
+  imageSection: {
+    marginBottom: 20,
+  },
+  imageLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  imagePicker: {
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+  },
+  imagePickerIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  imagePickerText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  imageContainer: {
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  selectedImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeImageText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

@@ -87,6 +87,15 @@ const recipeSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  image: {
+    type: String,
+    default: null
+  },
+  imageStatus: {
+    type: String,
+    enum: ['none', 'pending', 'processing', 'ready', 'failed'],
+    default: 'none'
+  },
   upvotes: {
     type: Number,
     default: 0
@@ -615,6 +624,84 @@ app.post('/api/auth/login', async (req, res) => {
 
 // ==================== RECIPE ENDPOINTS (MongoDB) ====================
 
+// Upload image to Cloudinary
+app.post('/api/upload-image', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    // Upload to Cloudinary
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          folder: 'recipe-forum',
+          transformation: [
+            { width: 600, height: 400, crop: 'limit' }, 
+            { quality: '70' } 
+          ],
+          eager: [
+            { width: 300, height: 200, crop: 'fill' } 
+          ],
+          resource_type: 'auto'
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(req.file.buffer);
+    });
+
+    res.json({
+      success: true,
+      imageUrl: result.secure_url,
+      publicId: result.public_id
+    });
+
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({ error: 'Failed to upload image' });
+  }
+});
+
+// Update recipe image asynchronously
+app.put('/api/recipes/:id/image', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { imageUrl, imageStatus } = req.body;
+
+    const updatedRecipe = await Recipe.findByIdAndUpdate(
+      id,
+      {
+        image: imageUrl,
+        imageStatus: imageStatus || 'ready',
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (!updatedRecipe) {
+      return res.status(404).json({
+        success: false,
+        error: 'Recipe not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Recipe image updated successfully',
+      recipe: updatedRecipe
+    });
+
+  } catch (error) {
+    console.error('Error updating recipe image:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update recipe image'
+    });
+  }
+});
+
 // Post a new recipe
 app.post('/api/recipes', async (req, res) => {
   try {
@@ -627,7 +714,9 @@ app.post('/api/recipes', async (req, res) => {
       difficulty,
       category,
       author,
-      authorEmail
+      authorEmail,
+      image,
+      imageStatus
     } = req.body;
 
     // Validate required fields
@@ -646,7 +735,9 @@ app.post('/api/recipes', async (req, res) => {
       difficulty: difficulty || 'Easy',
       category,
       author,
-      authorEmail
+      authorEmail,
+      image: image || null,
+      imageStatus: imageStatus || (image ? 'ready' : 'none')
     });
 
     const savedRecipe = await recipe.save();
@@ -676,7 +767,8 @@ app.put('/api/recipes/:id', async (req, res) => {
       description,
       cookingTime,
       difficulty,
-      category
+      category,
+      image
     } = req.body;
 
     // Validate required fields
@@ -696,6 +788,7 @@ app.put('/api/recipes/:id', async (req, res) => {
         cookingTime,
         difficulty: difficulty || 'Easy',
         category,
+        ...(image !== undefined && { image: image }),
         updatedAt: new Date()
       },
       { new: true, runValidators: true }
@@ -733,7 +826,7 @@ app.get('/api/recipes', async (req, res) => {
     
     const recipes = await Recipe.find({ isActive: 1 })
       .sort({ createdAt: -1 })
-      .select('title description cookingTime difficulty category author authorEmail upvotes downvotes createdAt');
+      .select('title description cookingTime difficulty category author authorEmail upvotes downvotes createdAt image imageStatus');
     
     const queryTime = Date.now() - startTime;
     // console.log(`MongoDB Recipe Query Performance: ${queryTime}ms for ${recipes.length} recipes`);
@@ -846,10 +939,10 @@ app.post('/api/recipes/:id/vote', async (req, res) => {
     const existingVoteIndex = recipe.votedUsers.findIndex(vote => vote.email === userEmail);
     const existingVote = existingVoteIndex !== -1 ? recipe.votedUsers[existingVoteIndex] : null;
 
-    // Clean up any duplicate votes for this user (security fix for email change exploit)
+    // Clean up any duplicate votes for this user
     const allUserVotes = recipe.votedUsers.filter(vote => vote.email === userEmail);
     if (allUserVotes.length > 1) {
-      console.log(`🔧 Cleaning up ${allUserVotes.length} duplicate votes for user ${userEmail} on recipe ${id}`);
+      console.log(`Cleaning up ${allUserVotes.length} duplicate votes for user ${userEmail} on recipe ${id}`);
       
       // Remove all votes from this user
       recipe.votedUsers = recipe.votedUsers.filter(vote => vote.email !== userEmail);

@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Keyboard, Modal, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, FlatList, Image, Keyboard, Modal, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 
@@ -28,6 +28,8 @@ interface Recipe {
   created_at: string;
   userVote?: 'upvote' | 'downvote' | null;
   commentCount?: number;
+  image?: string;
+  imageStatus?: 'none' | 'pending' | 'processing' | 'ready' | 'failed';
 }
 
 export default function RecipesForumScreen() {
@@ -412,6 +414,26 @@ export default function RecipesForumScreen() {
         <Text style={styles.recipeDescription} numberOfLines={2}>
           {item.description}
         </Text>
+        
+        {/* Recipe Image */}
+        {item.imageStatus === 'ready' && item.image && (
+          <View style={styles.imageContainer}>
+            <Image 
+              source={{ uri: item.image }} 
+              style={styles.recipeImage}
+            />
+          </View>
+        )}
+        {item.imageStatus === 'pending' && (
+          <View style={styles.imageStatusContainer}>
+            <Text style={styles.imageStatusText}>📷 Image processing...</Text>
+          </View>
+        )}
+        {item.imageStatus === 'failed' && (
+          <View style={styles.imageStatusContainer}>
+            <Text style={styles.imageStatusText}>❌ Image upload failed</Text>
+          </View>
+        )}
         
         <View style={styles.cardFooter}>
           <View style={styles.metaInfo}>
@@ -962,5 +984,30 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingTop: 110,
     paddingRight: 10, 
+  },
+  imageContainer: {
+    marginVertical: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  recipeImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+  },
+  imageStatusContainer: {
+    marginVertical: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 15,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    alignItems: 'center',
+  },
+  imageStatusText: {
+    fontSize: 14,
+    color: '#6c757d',
+    fontStyle: 'italic',
   },
 });

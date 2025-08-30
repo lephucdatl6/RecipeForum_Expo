@@ -19,6 +19,8 @@ interface Recipe {
   created_at: string;
   updatedAt?: string | null;
   userVote?: 'upvote' | 'downvote' | null;
+  image?: string;
+  imageStatus?: 'none' | 'pending' | 'processing' | 'ready' | 'failed';
 }
 
 interface UserData {
@@ -193,7 +195,9 @@ export default function PostDetailScreen() {
             downvotes: voteData.success ? voteData.downvotes : (data.recipe.downvotes || 0),
             created_at: data.recipe.createdAt,
             updatedAt: data.recipe.updatedAt,
-            userVote: voteData.success ? voteData.userVote : null
+            userVote: voteData.success ? voteData.userVote : null,
+            image: data.recipe.image,
+            imageStatus: data.recipe.imageStatus
           };
           setRecipe(updatedRecipe);
           setVoteStatusLoaded(true);
@@ -902,6 +906,26 @@ export default function PostDetailScreen() {
               )}
             </View>
 
+            {/* Recipe Image */}
+            {recipe.imageStatus === 'ready' && recipe.image && (
+              <View style={styles.imageSection}>
+                <Image 
+                  source={{ uri: recipe.image }} 
+                  style={styles.recipeImage}
+                />
+              </View>
+            )}
+            {recipe.imageStatus === 'pending' && (
+              <View style={styles.imageStatusSection}>
+                <Text style={styles.imageStatusText}>📷 Image processing...</Text>
+              </View>
+            )}
+            {recipe.imageStatus === 'failed' && (
+              <View style={styles.imageStatusSection}>
+                <Text style={styles.imageStatusText}>❌ Image upload failed</Text>
+              </View>
+            )}
+
             <View style={styles.descriptionSection}>
               <Text style={styles.sectionTitle}>Description</Text>
               <Text style={styles.description}>{recipe.description}</Text>
@@ -1607,5 +1631,29 @@ const styles = StyleSheet.create({
   },
   postButtonTextDisabled: {
     color: '#999',
+  },
+  imageSection: {
+    marginBottom: 20,
+  },
+  recipeImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  imageStatusSection: {
+    marginBottom: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 15,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    alignItems: 'center',
+  },
+  imageStatusText: {
+    fontSize: 14,
+    color: '#6c757d',
+    fontStyle: 'italic',
   },
 });
