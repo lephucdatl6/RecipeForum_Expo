@@ -3,6 +3,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
+import { uploadImageAsync } from '../../utils/imageUploadUtils';
 
 interface UserData {
   user_id: number;
@@ -206,76 +207,6 @@ export default function EditPostScreen() {
     } finally {
       setIsUpdating(false);
       setLoadingMessage('');
-    }
-  };
-
-  // Async function to upload image in background
-  const uploadImageAsync = async (recipeId: string, imageUri: string) => {
-    try {
-      // console.log('Starting background image upload for recipe:', recipeId);
-      
-      // Upload to Cloudinary
-      const formData = new FormData();
-      formData.append('image', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'recipe-image.jpg',
-      } as any);
-
-      const imageResponse = await fetch(`${API_BASE_URL}/api/upload-image`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      const imageResult = await imageResponse.json();
-
-      if (imageResult.success) {
-        // Update recipe with image URL
-        await fetch(`${API_BASE_URL}/api/recipes/${recipeId}/image`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            imageUrl: imageResult.imageUrl,
-            imageStatus: 'ready'
-          }),
-        });
-        // console.log('Background image upload completed successfully');
-      } else {
-        // Mark image as failed
-        await fetch(`${API_BASE_URL}/api/recipes/${recipeId}/image`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            imageUrl: null,
-            imageStatus: 'failed'
-          }),
-        });
-        console.log('Background image upload failed');
-      }
-    } catch (error) {
-      console.error('Background image upload error:', error);
-      // Mark image as failed
-      try {
-        await fetch(`${API_BASE_URL}/api/recipes/${recipeId}/image`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            imageUrl: null,
-            imageStatus: 'failed'
-          }),
-        });
-      } catch (updateError) {
-        console.error('Failed to update image status:', updateError);
-      }
     }
   };
 
