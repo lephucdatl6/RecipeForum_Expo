@@ -94,7 +94,7 @@ export default function CreatePostScreen() {
         return;
       }
 
-      // Step 1: Create recipe immediately (optimistic creation)
+      // Create recipe immediately (optimistic creation)
       setLoadingMessage('Creating recipe...');
       const recipeData = {
         title: formData.title,
@@ -106,7 +106,7 @@ export default function CreatePostScreen() {
         authorEmail: formData.authorEmail,
         ingredients: [], 
         instructions: [],
-        image: null, // No image initially
+        image: null, 
         imageStatus: selectedImage ? 'pending' : 'none' // Mark as pending if image selected
       };
 
@@ -123,9 +123,9 @@ export default function CreatePostScreen() {
       if (result.success) {
         const recipeId = result.recipe._id;
         
-        // Step 2: Show success immediately and navigate back
+        // Show success immediately and navigate back
         Alert.alert(
-          'Success! 🎉', 
+          'Success!', 
           selectedImage 
             ? 'Recipe created! Image is being processed and will appear shortly.' 
             : 'Your recipe has been posted successfully!',
@@ -143,9 +143,12 @@ export default function CreatePostScreen() {
           ]
         );
 
-        // Step 3: Upload image in background if selected
+        // Upload image in background if selected
         if (selectedImage && recipeId) {
-          uploadImageAsync(recipeId, selectedImage);
+          // Add a small delay to ensure the forum screen shows "pending" status
+          setTimeout(() => {
+            uploadImageAsync(recipeId, selectedImage);
+          }, 2000); // 2 second delay to show "Image processing..." status
         }
       } else {
         // Show more detailed error if it a validation error
@@ -171,7 +174,7 @@ export default function CreatePostScreen() {
   // Async function to upload image in background
   const uploadImageAsync = async (recipeId: string, imageUri: string) => {
     try {
-      console.log('Starting background image upload for recipe:', recipeId);
+      // console.log('Starting background image upload for recipe:', recipeId);
       
       // Upload to Cloudinary
       const formData = new FormData();
@@ -203,7 +206,7 @@ export default function CreatePostScreen() {
             imageStatus: 'ready'
           }),
         });
-        console.log('Background image upload completed successfully');
+        // console.log('Background image upload completed successfully');
       } else {
         // Mark image as failed
         await fetch(`${API_BASE_URL}/api/recipes/${recipeId}/image`, {

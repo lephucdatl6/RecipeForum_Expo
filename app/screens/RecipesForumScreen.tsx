@@ -42,6 +42,9 @@ export default function RecipesForumScreen() {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'most_upvoted' | 'most_downvoted'>('newest');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
+  
+  // Image status polling
+  const [pollingRecipes, setPollingRecipes] = useState<Set<string>>(new Set());
 
   const sortOptions = [
     { key: 'newest', label: 'Newest' },
@@ -116,8 +119,9 @@ export default function RecipesForumScreen() {
   // Reload recipes when screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      // This ensures get updated imageStatus after editing
       loadRecipes();
-    }, [userData?.email])
+    }, [])
   );
 
   const loadRecipes = async () => {
@@ -175,14 +179,14 @@ export default function RecipesForumScreen() {
               
               if (commentData.success) {
                 return {
-                  ...recipe,
+                  ...recipe, // Preserve all original fields including imageStatus
                   commentCount: commentData.stats.totalComments
                 };
               }
             } catch (commentError) {
               console.error('Error loading comment count for recipe:', recipe.id, commentError);
             }
-            return { ...recipe, commentCount: 0 };
+            return { ...recipe, commentCount: 0 }; // Preserve all fields when adding default commentCount
           });
           
           recipesWithIds = await Promise.all(commentPromises);
@@ -329,6 +333,80 @@ export default function RecipesForumScreen() {
     }
   }, [userData?.email, recipes.length]);
 
+  // Poll for image status updates for recipes with pending/processing images
+  useEffect(() => {
+    const recipesToPoll = recipes.filter(recipe => 
+      recipe.id && (recipe.imageStatus === 'pending' || recipe.imageStatus === 'processing')
+    );
+    
+    if (recipesToPoll.length === 0) {
+      setPollingRecipes(new Set());
+      return;
+    }
+    
+    const newPollingSet = new Set(recipesToPoll.map(r => r.id!.toString()));
+    setPollingRecipes(newPollingSet);
+    
+    const pollImageStatus = async () => {
+      try {
+        // Check each recipe that needs polling
+        const updatePromises = recipesToPoll.map(async (recipe) => {
+          const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}`);
+          const data = await response.json();
+          
+          if (data.success && data.recipe) {
+            return {
+              id: recipe.id,
+              imageStatus: data.recipe.imageStatus,
+              image: data.recipe.image
+            };
+          }
+          return null;
+        });
+        
+        const updates = await Promise.all(updatePromises);
+        
+        // Update recipes that have changed
+        let hasChanges = false;
+        const updatedRecipes = recipes.map(recipe => {
+          const update = updates.find(u => u && u.id?.toString() === recipe.id?.toString());
+          if (update && (update.imageStatus !== recipe.imageStatus || update.image !== recipe.image)) {
+            hasChanges = true;
+            return {
+              ...recipe,
+              imageStatus: update.imageStatus,
+              image: update.image
+            };
+          }
+          return recipe;
+        });
+        
+        if (hasChanges) {
+          setRecipes(updatedRecipes);
+        }
+        
+      } catch (error) {
+        console.error('Error polling image status:', error);
+      }
+    };
+    
+    // Start polling immediately
+    pollImageStatus();
+    
+    const pollInterval = setInterval(pollImageStatus, 3000); // Poll every 3 seconds
+    
+    // Stop polling after 2 minutes
+    const timeout = setTimeout(() => {
+      clearInterval(pollInterval);
+      setPollingRecipes(new Set());
+    }, 120000);
+    
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(timeout);
+    };
+  }, [recipes]);
+
   const formatDate = (dateString: string) => {
     try {
       if (!dateString) return 'Unknown date';
@@ -426,12 +504,19 @@ export default function RecipesForumScreen() {
         )}
         {item.imageStatus === 'pending' && (
           <View style={styles.imageStatusContainer}>
-            <Text style={styles.imageStatusText}>📷 Image processing...</Text>
+            <Text style={styles.imageStatusText}>
+              {pollingRecipes.has(item.id?.toString() || '') ? 'Image processing...' : 'Image pending...'}
+            </Text>
+          </View>
+        )}
+        {item.imageStatus === 'processing' && (
+          <View style={styles.imageStatusContainer}>
+            <Text style={styles.imageStatusText}>Image processing...</Text>
           </View>
         )}
         {item.imageStatus === 'failed' && (
           <View style={styles.imageStatusContainer}>
-            <Text style={styles.imageStatusText}>❌ Image upload failed</Text>
+            <Text style={styles.imageStatusText}>Image upload failed</Text>
           </View>
         )}
         

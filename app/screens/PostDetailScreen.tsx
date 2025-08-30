@@ -72,6 +72,9 @@ export default function PostDetailScreen() {
   const slideAnimation = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   
+  // Image status polling
+  const [isPollingImageStatus, setIsPollingImageStatus] = useState(false);
+  
   // Keyboard handling with animated values for smooth transitions
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -207,6 +210,62 @@ export default function PostDetailScreen() {
       }
     }
   }, [recipe?.id, userData?.email]);
+
+  // Poll for image status updates when image is pending or processing
+  useEffect(() => {
+    let pollInterval: ReturnType<typeof setInterval>;
+    
+    if (recipe?.id && (recipe.imageStatus === 'pending' || recipe.imageStatus === 'processing')) {
+      setIsPollingImageStatus(true);
+      
+      const pollImageStatus = async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}`);
+          const data = await response.json();
+          
+          if (data.success && data.recipe) {
+            const currentStatus = data.recipe.imageStatus;
+            const currentImage = data.recipe.image;
+            
+            // Update recipe if status changed
+            if (currentStatus !== recipe.imageStatus || currentImage !== recipe.image) {
+              setRecipe(prev => prev ? {
+                ...prev,
+                image: currentImage,
+                imageStatus: currentStatus
+              } : null);
+              
+              // Stop polling if status is final
+              if (currentStatus === 'ready' || currentStatus === 'failed' || currentStatus === 'none') {
+                setIsPollingImageStatus(false);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error polling image status:', error);
+        }
+      };
+      
+      // Poll every 3 seconds
+      pollInterval = setInterval(pollImageStatus, 3000);
+      
+      // Stop polling after 2 minutes (in case something goes wrong)
+      setTimeout(() => {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          setIsPollingImageStatus(false);
+        }
+      }, 120000);
+    } else {
+      setIsPollingImageStatus(false);
+    }
+    
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [recipe?.id, recipe?.imageStatus]);
 
   // Refresh data when screen comes into focus (e.g., after editing)
   useFocusEffect(
@@ -917,12 +976,19 @@ export default function PostDetailScreen() {
             )}
             {recipe.imageStatus === 'pending' && (
               <View style={styles.imageStatusSection}>
-                <Text style={styles.imageStatusText}>📷 Image processing...</Text>
+                <Text style={styles.imageStatusText}>
+                  {isPollingImageStatus ? 'Image processing...' : 'Image pending...'}
+                </Text>
+              </View>
+            )}
+            {recipe.imageStatus === 'processing' && (
+              <View style={styles.imageStatusSection}>
+                <Text style={styles.imageStatusText}>Image processing...</Text>
               </View>
             )}
             {recipe.imageStatus === 'failed' && (
               <View style={styles.imageStatusSection}>
-                <Text style={styles.imageStatusText}>❌ Image upload failed</Text>
+                <Text style={styles.imageStatusText}>Image upload failed</Text>
               </View>
             )}
 

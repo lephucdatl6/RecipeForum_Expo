@@ -768,7 +768,8 @@ app.put('/api/recipes/:id', async (req, res) => {
       cookingTime,
       difficulty,
       category,
-      image
+      image,
+      imageStatus
     } = req.body;
 
     // Validate required fields
@@ -789,6 +790,7 @@ app.put('/api/recipes/:id', async (req, res) => {
         difficulty: difficulty || 'Easy',
         category,
         ...(image !== undefined && { image: image }),
+        ...(imageStatus !== undefined && { imageStatus: imageStatus }),
         updatedAt: new Date()
       },
       { new: true, runValidators: true }

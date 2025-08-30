@@ -28,6 +28,7 @@ interface Recipe {
   created_at: string;
   updatedAt?: string | null;
   image?: string;
+  imageStatus?: string;
 }
 
 export default function EditPostScreen() {
@@ -102,7 +103,7 @@ export default function EditPostScreen() {
       mediaTypes: 'images',
       allowsEditing: true,
       aspect: [16, 9],
-      quality: 0.6, // Reduced quality for faster upload
+      quality: 1,
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -129,48 +130,25 @@ export default function EditPostScreen() {
         return;
       }
 
-      // Handle image upload if image has changed
-      let imageUrl = originalImage; // Keep original image by default
+      // Update recipe immediately (optimistic update)
+      setLoadingMessage('Updating recipe...');
       
-      // If user selected a new image (different from original)
+      // Determine image status for immediate update
+      let imageStatus = 'none';
+      let imageUrl = originalImage;
+      
       if (selectedImage && selectedImage !== originalImage) {
-        try {
-          setLoadingMessage('Uploading new image...');
-          const formData = new FormData();
-          formData.append('image', {
-            uri: selectedImage,
-            type: 'image/jpeg',
-            name: 'recipe-image.jpg',
-          } as any);
-
-          const imageResponse = await fetch(`${API_BASE_URL}/api/upload-image`, {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          });
-
-          const imageResult = await imageResponse.json();
-          if (imageResult.success) {
-            imageUrl = imageResult.imageUrl;
-            setLoadingMessage('Updating recipe...');
-          } else {
-            Alert.alert('Warning', 'Failed to upload new image, keeping original image');
-            setLoadingMessage('Updating recipe...');
-          }
-        } catch (imageError) {
-          console.error('Image upload error:', imageError);
-          Alert.alert('Warning', 'Failed to upload new image, keeping original image');
-          setLoadingMessage('Updating recipe...');
-        }
-      }
-      // If user removed the image (selectedImage is null)
-      else if (!selectedImage) {
+        // New image selected - set as pending, will upload async
+        imageStatus = 'pending';
+        imageUrl = originalImage; // Keep original for now
+      } else if (!selectedImage) {
+        // Image removed
+        imageStatus = 'none';
         imageUrl = null;
-        setLoadingMessage('Updating recipe...');
       } else {
-        setLoadingMessage('Updating recipe...');
+        // No change to image
+        imageStatus = originalImage ? 'ready' : 'none';
+        imageUrl = originalImage;
       }
 
       // Prepare the updated recipe data
@@ -180,7 +158,8 @@ export default function EditPostScreen() {
         cookingTime: parseInt(formData.cookingTime),
         difficulty: formData.difficulty,
         category: formData.category,
-        image: imageUrl
+        image: imageUrl,
+        imageStatus: imageStatus
       };
 
       const response = await fetch(`${API_BASE_URL}/api/recipes/${recipeId}`, {
@@ -194,21 +173,29 @@ export default function EditPostScreen() {
       const result = await response.json();
 
       if (result.success) {
+        // Show success immediately and navigate back
         Alert.alert(
-          'Success! 🎉', 
-          'Your recipe has been updated successfully!',
+          'Success!', 
+          (selectedImage && selectedImage !== originalImage) 
+            ? 'Recipe updated! New image is being processed and will appear shortly.' 
+            : 'Your recipe has been updated successfully!',
           [
             {
               text: 'OK',
               onPress: () => {
-                // Small delay for database update
-                setTimeout(() => {
-                  router.back();
-                }, 100);
+                router.back();
               }
             }
           ]
         );
+
+        // Upload new image in background if changed
+        if (selectedImage && selectedImage !== originalImage) {
+          // Add a small delay to ensure the forum screen shows "pending" status
+          setTimeout(() => {
+            uploadImageAsync(recipeId.toString(), selectedImage);
+          }, 2000); // 2 second delay to show "Image processing..." status
+        }
       } else {
         Alert.alert('Error', result.error || 'Failed to update recipe');
       }
@@ -219,6 +206,76 @@ export default function EditPostScreen() {
     } finally {
       setIsUpdating(false);
       setLoadingMessage('');
+    }
+  };
+
+  // Async function to upload image in background
+  const uploadImageAsync = async (recipeId: string, imageUri: string) => {
+    try {
+      // console.log('Starting background image upload for recipe:', recipeId);
+      
+      // Upload to Cloudinary
+      const formData = new FormData();
+      formData.append('image', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'recipe-image.jpg',
+      } as any);
+
+      const imageResponse = await fetch(`${API_BASE_URL}/api/upload-image`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const imageResult = await imageResponse.json();
+
+      if (imageResult.success) {
+        // Update recipe with image URL
+        await fetch(`${API_BASE_URL}/api/recipes/${recipeId}/image`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageUrl: imageResult.imageUrl,
+            imageStatus: 'ready'
+          }),
+        });
+        // console.log('Background image upload completed successfully');
+      } else {
+        // Mark image as failed
+        await fetch(`${API_BASE_URL}/api/recipes/${recipeId}/image`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageUrl: null,
+            imageStatus: 'failed'
+          }),
+        });
+        console.log('Background image upload failed');
+      }
+    } catch (error) {
+      console.error('Background image upload error:', error);
+      // Mark image as failed
+      try {
+        await fetch(`${API_BASE_URL}/api/recipes/${recipeId}/image`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageUrl: null,
+            imageStatus: 'failed'
+          }),
+        });
+      } catch (updateError) {
+        console.error('Failed to update image status:', updateError);
+      }
     }
   };
 
