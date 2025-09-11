@@ -491,6 +491,26 @@ async function ensureProfileImageColumn() {
 ensureCreatedAtColumn();
 ensureProfileImageColumn();
 
+// Add ingredients table if it doesn't exist
+async function ensureIngredientsTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ingredients (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('Ingredients table ensured');
+  } catch (err) {
+    console.error('Error creating ingredients table:', err.message);
+  }
+}
+
+ensureIngredientsTable();
+
 // Authentication routes
 // Signup route
 app.post('/api/auth/signup', async (req, res) => {
@@ -618,6 +638,139 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: 'Internal server error'
+    });
+  }
+});
+
+// ==================== INGREDIENTS ENDPOINTS (PostgreSQL) ====================
+
+// Get all ingredients
+app.get('/api/ingredients', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM ingredients ORDER BY name ASC');
+    res.json({
+      success: true,
+      ingredients: result.rows
+    });
+  } catch (err) {
+    console.error('Error fetching ingredients:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch ingredients' 
+    });
+  }
+});
+
+// Add new ingredient
+app.post('/api/ingredients', async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ingredient name is required'
+      });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO ingredients (name, description) VALUES ($1, $2) RETURNING *',
+      [name.trim(), description?.trim() || null]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Ingredient added successfully',
+      ingredient: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error adding ingredient:', err);
+    
+    if (err.code === '23505') { 
+      return res.status(400).json({
+        success: false,
+        error: 'An ingredient with this name already exists'
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to add ingredient' 
+    });
+  }
+});
+
+// Update ingredient
+app.put('/api/ingredients/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ingredient name is required'
+      });
+    }
+
+    const result = await pool.query(
+      'UPDATE ingredients SET name = $1, description = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+      [name.trim(), description?.trim() || null, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ingredient not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Ingredient updated successfully',
+      ingredient: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error updating ingredient:', err);
+    
+    if (err.code === '23505') { 
+      return res.status(400).json({
+        success: false,
+        error: 'An ingredient with this name already exists'
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update ingredient' 
+    });
+  }
+});
+
+// Delete ingredient
+app.delete('/api/ingredients/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query('DELETE FROM ingredients WHERE id = $1 RETURNING *', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ingredient not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Ingredient deleted successfully',
+      ingredient: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error deleting ingredient:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to delete ingredient' 
     });
   }
 });
@@ -822,7 +975,6 @@ app.put('/api/recipes/:id', async (req, res) => {
 // Get all recipes (only active ones) - Optimized MongoDB query
 app.get('/api/recipes', async (req, res) => {
   try {
-    // MongoDB advantage: Single query vs multiple JOINs in SQL
     // This would require 4+ table JOINs in pure SQL (recipes, users, ingredients, instructions, votes)
     const startTime = Date.now();
     
@@ -1780,6 +1932,13 @@ app.get('/api/admin/recipes/all', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
+
+// ==================== STATIC ROUTES ====================
+
+// Serve ingredients manager HTML page
+app.get('/ingredients-manager', (req, res) => {
+  res.sendFile(__dirname + '/ingredients-manager.html');
+});
 
 // Auto-generate API configuration on server startup
 console.log('Auto-generating API configuration...');

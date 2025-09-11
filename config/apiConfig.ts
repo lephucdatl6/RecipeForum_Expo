@@ -1,12 +1,12 @@
 // Auto-generated API configuration
-// Generated on: 8/30/2025, 11:10:50 AM
-// Detected IP: 10.25.33.28
+// Generated on: 9/11/2025, 3:07:46 PM
+// Detected IP: 192.168.100.194
 
-export const API_BASE_URL = 'http://10.25.33.28:3001';
+export const API_BASE_URL = 'http://192.168.100.194:3001';
 
 // Backup configurations
 export const API_CONFIGS = {
-  AUTO_DETECTED: 'http://10.25.33.28:3001',
+  AUTO_DETECTED: 'http://192.168.100.194:3001',
   LOCALHOST: 'http://localhost:3001',
   MANUAL_OVERRIDE: '', 
 };
