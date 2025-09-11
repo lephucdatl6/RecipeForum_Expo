@@ -1,0 +1,497 @@
+<!-- 
+  Ingredients Manager UI
+  Access this page in browser: http://localhost:3001/ingredients-manager
+  Requires backend API: /api/ingredients
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingredients Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ffa500);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border: 1px solid #e9ecef;
+        }
+
+        .form-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-right: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+
+        .ingredients-list {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
+        }
+
+        .ingredients-list h2 {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 0;
+            color: #333;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .ingredient-item {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s ease;
+        }
+
+        .ingredient-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .ingredient-item:last-child {
+            border-bottom: none;
+        }
+
+        .ingredient-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .ingredient-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .ingredient-id {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .ingredient-description {
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+
+        .ingredient-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .success-message,
+        .error-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .edit-form {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .ingredient-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .ingredient-actions {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Ingredients Manager</h1>
+        </div>
+        
+        <div class="content">
+            <!-- Success/Error Messages -->
+            <div id="messageContainer"></div>
+            
+            <!-- Add New Ingredient Form -->
+            <div class="form-section">
+                <h2>Add New Ingredient</h2>
+                <form id="addIngredientForm">
+                    <div class="form-group">
+                        <label for="ingredientName">Ingredient Name:</label>
+                        <input 
+                            type="text" 
+                            id="ingredientName" 
+                            name="name" 
+                            required 
+                            placeholder="Enter ingredient name..."
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="ingredientDescription">Description:</label>
+                        <textarea 
+                            id="ingredientDescription" 
+                            name="description" 
+                            placeholder="Enter ingredient description..."
+                        ></textarea>
+                    </div>
+                    <button type="submit" class="btn">Add Ingredient</button>
+                </form>
+            </div>
+            
+            <!-- Ingredients List -->
+            <div class="ingredients-list">
+                <h2>Current Ingredients</h2>
+                <div id="ingredientsList">
+                    <div class="loading">Loading ingredients...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = '/api';
+        
+        // DOM Elements
+        const addForm = document.getElementById('addIngredientForm');
+        const ingredientsList = document.getElementById('ingredientsList');
+        const messageContainer = document.getElementById('messageContainer');
+        
+        // Load ingredients when page loads
+        document.addEventListener('DOMContentLoaded', loadIngredients);
+        
+        // Add form submit handler
+        addForm.addEventListener('submit', handleAddIngredient);
+        
+        async function loadIngredients() {
+            try {
+                ingredientsList.innerHTML = '<div class="loading">Loading ingredients...</div>';
+                
+                const response = await fetch(`${API_BASE_URL}/ingredients`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayIngredients(data.ingredients);
+                } else {
+                    throw new Error(data.error || 'Failed to load ingredients');
+                }
+            } catch (error) {
+                console.error('Error loading ingredients:', error);
+                ingredientsList.innerHTML = `<div class="error-message">Error loading ingredients: ${error.message}</div>`;
+            }
+        }
+        
+        function displayIngredients(ingredients) {
+            if (ingredients.length === 0) {
+                ingredientsList.innerHTML = '<div class="loading">No ingredients found. Add some ingredients to get started!</div>';
+                return;
+            }
+            
+            const ingredientsHTML = ingredients.map(ingredient => `
+                <div class="ingredient-item" data-id="${ingredient.id}">
+                    <div class="ingredient-header">
+                        <span class="ingredient-name">${escapeHtml(ingredient.name)}</span>
+                        <span class="ingredient-id">ID: ${ingredient.id}</span>
+                    </div>
+                    <div class="ingredient-description">${escapeHtml(ingredient.description || 'No description provided')}</div>
+                    <div class="ingredient-actions">
+                        <button class="btn btn-secondary btn-small" onclick="editIngredient(${ingredient.id}, '${escapeHtml(ingredient.name)}', '${escapeHtml(ingredient.description || '')}')">Edit</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteIngredient(${ingredient.id}, '${escapeHtml(ingredient.name)}')">Delete</button>
+                    </div>
+                    <div id="edit-form-${ingredient.id}" class="edit-form" style="display: none;">
+                        <form onsubmit="saveEdit(event, ${ingredient.id})">
+                            <div class="form-group">
+                                <label>Name:</label>
+                                <input type="text" id="edit-name-${ingredient.id}" value="${escapeHtml(ingredient.name)}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Description:</label>
+                                <textarea id="edit-description-${ingredient.id}">${escapeHtml(ingredient.description || '')}</textarea>
+                            </div>
+                            <button type="submit" class="btn btn-small">Save</button>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit(${ingredient.id})">Cancel</button>
+                        </form>
+                    </div>
+                </div>
+            `).join('');
+            
+            ingredientsList.innerHTML = ingredientsHTML;
+        }
+        
+        async function handleAddIngredient(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(addForm);
+            const ingredientData = {
+                name: formData.get('name').trim(),
+                description: formData.get('description').trim()
+            };
+            
+            if (!ingredientData.name) {
+                showMessage('Please enter an ingredient name', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/ingredients`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(ingredientData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage(`Successfully added ingredient: ${ingredientData.name}`, 'success');
+                    addForm.reset();
+                    loadIngredients();
+                } else {
+                    throw new Error(data.error || 'Failed to add ingredient');
+                }
+            } catch (error) {
+                console.error('Error adding ingredient:', error);
+                showMessage(`Error adding ingredient: ${error.message}`, 'error');
+            }
+        }
+        
+        function editIngredient(id, name, description) {
+            // Hide all other edit forms
+            document.querySelectorAll('.edit-form').forEach(form => {
+                form.style.display = 'none';
+            });
+            
+            // Show the edit form for this ingredient
+            const editForm = document.getElementById(`edit-form-${id}`);
+            editForm.style.display = 'block';
+        }
+        
+        function cancelEdit(id) {
+            const editForm = document.getElementById(`edit-form-${id}`);
+            editForm.style.display = 'none';
+        }
+        
+        async function saveEdit(event, id) {
+            event.preventDefault();
+            
+            const name = document.getElementById(`edit-name-${id}`).value.trim();
+            const description = document.getElementById(`edit-description-${id}`).value.trim();
+            
+            if (!name) {
+                showMessage('Please enter an ingredient name', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/ingredients/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name, description })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage(`Successfully updated ingredient: ${name}`, 'success');
+                    loadIngredients();
+                } else {
+                    throw new Error(data.error || 'Failed to update ingredient');
+                }
+            } catch (error) {
+                console.error('Error updating ingredient:', error);
+                showMessage(`Error updating ingredient: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deleteIngredient(id, name) {
+            if (!confirm(`Are you sure you want to delete "${name}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/ingredients/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage(`Successfully deleted ingredient: ${name}`, 'success');
+                    loadIngredients();
+                } else {
+                    throw new Error(data.error || 'Failed to delete ingredient');
+                }
+            } catch (error) {
+                console.error('Error deleting ingredient:', error);
+                showMessage(`Error deleting ingredient: ${error.message}`, 'error');
+            }
+        }
+        
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'success' ? 'success-message' : 'error-message';
+            messageDiv.textContent = message;
+            
+            messageContainer.innerHTML = '';
+            messageContainer.appendChild(messageDiv);
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                if (messageContainer.contains(messageDiv)) {
+                    messageContainer.removeChild(messageDiv);
+                }
+            }, 5000);
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
+const path = require('path');
 const { Pool } = require('pg');
 const mongoose = require('mongoose');
 const { sendWelcomeEmail } = require('./emailService');
@@ -1937,7 +1938,7 @@ const PORT = process.env.PORT || 3001;
 
 // Serve ingredients manager HTML page
 app.get('/ingredients-manager', (req, res) => {
-  res.sendFile(__dirname + '/ingredients-manager.html');
+  res.sendFile(path.join(__dirname, '..', 'admin', 'ingredients-manager.html'));
 });
 
 // Auto-generate API configuration on server startup
