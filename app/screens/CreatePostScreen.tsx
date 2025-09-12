@@ -113,11 +113,6 @@ export default function CreatePostScreen() {
       
       if (response.ok) {
         setIngredientOptions(data.ingredients || []);
-        if (data.ingredients && data.ingredients.length > 0) {
-          setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-          }, 200);
-        }
       } else {
         console.error('Error searching ingredients:', data.error);
         setIngredientOptions([]);
@@ -534,7 +529,7 @@ export default function CreatePostScreen() {
           disabled={isPosting}
         >
           <Text style={styles.postButtonText}>
-            {isPosting ? `${loadingMessage || 'Posting...'}` : '📤 Post Recipe'}
+            {isPosting ? `${loadingMessage || 'Posting...'}` : 'Post Recipe'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

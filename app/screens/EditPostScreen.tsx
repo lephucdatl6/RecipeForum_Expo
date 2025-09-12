@@ -155,11 +155,6 @@ export default function EditPostScreen() {
       
       if (response.ok) {
         setIngredientOptions(data.ingredients || []);
-        if (data.ingredients && data.ingredients.length > 0) {
-          setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-          }, 200);
-        }
       } else {
         console.error('Error searching ingredients:', data.error);
         setIngredientOptions([]);
@@ -703,7 +698,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   postButton: {
-    backgroundColor: '#ff8c00',
+    backgroundColor: '#4CAF50',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
