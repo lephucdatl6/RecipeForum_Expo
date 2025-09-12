@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 import { uploadImageAsync } from '../../utils/imageUploadUtils';
 
@@ -15,12 +15,34 @@ interface UserData {
   created_at?: string;
 }
 
+interface Ingredient {
+  ingredientId: number;
+  name: string;
+  amount: number;
+  unit: string;
+}
+
+interface IngredientOption {
+  id: number;
+  name: string;
+  description?: string;
+}
+
 export default function CreatePostScreen() {
   const params = useLocalSearchParams();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [ingredientSearch, setIngredientSearch] = useState('');
+  const [ingredientOptions, setIngredientOptions] = useState<IngredientOption[]>([]);
+  const [showIngredientSearch, setShowIngredientSearch] = useState(false);
+  const [showUnitSelector, setShowUnitSelector] = useState<number | null>(null); // Track which ingredient's unit selector is shown
+  
+  // Common units for ingredients
+  const commonUnits = ['pcs', 'cups', 'tbsp', 'tsp', 'grams', 'kg', 'lbs', 'oz', 'ml', 'liters', 'cloves', 'slices', 'bunch'];
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -36,7 +58,6 @@ export default function CreatePostScreen() {
       try {
         const user = JSON.parse(params.userData as string);
         setUserData(user);
-        // Auto-populate author and email from logged-in user
         setFormData(prev => ({
           ...prev,
           author: user.username,
@@ -79,6 +100,82 @@ export default function CreatePostScreen() {
     setSelectedImage(null);
   };
 
+  // Ingredient management functions
+  const searchIngredients = async (searchTerm: string) => {
+    if (searchTerm.length < 2) {
+      setIngredientOptions([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ingredients?search=${encodeURIComponent(searchTerm)}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setIngredientOptions(data.ingredients || []);
+        if (data.ingredients && data.ingredients.length > 0) {
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 200);
+        }
+      } else {
+        console.error('Error searching ingredients:', data.error);
+        setIngredientOptions([]);
+      }
+    } catch (error) {
+      console.error('Error searching ingredients:', error);
+      setIngredientOptions([]);
+    }
+  };
+
+  const addIngredient = (ingredientOption: IngredientOption) => {
+    // Check if ingredient already exists
+    const exists = ingredients.find(ing => ing.ingredientId === ingredientOption.id);
+    if (exists) {
+      Alert.alert('Already Added', 'This ingredient is already in your recipe');
+      return;
+    }
+
+    const newIngredient: Ingredient = {
+      ingredientId: ingredientOption.id,
+      name: ingredientOption.name,
+      amount: 1,
+      unit: 'pcs'
+    };
+
+    setIngredients([...ingredients, newIngredient]);
+    setIngredientSearch('');
+    setIngredientOptions([]);
+    setShowIngredientSearch(false);
+  };
+
+  const updateIngredientAmount = (index: number, amount: string) => {
+    const updatedIngredients = [...ingredients];
+    const numericAmount = parseFloat(amount);
+    
+    // Only update if the amount is valid (greater than 0) or if it empty (user is typing)
+    if (amount === '' || (!isNaN(numericAmount) && numericAmount > 0)) {
+      updatedIngredients[index].amount = numericAmount || 0;
+      setIngredients(updatedIngredients);
+    }
+  };
+
+  const updateIngredientUnit = (index: number, unit: string) => {
+    const updatedIngredients = [...ingredients];
+    updatedIngredients[index].unit = unit;
+    setIngredients(updatedIngredients);
+    setShowUnitSelector(null);
+  };
+
+  const selectUnit = (index: number, unit: string) => {
+    updateIngredientUnit(index, unit);
+  };
+
+  const removeIngredient = (index: number) => {
+    const updatedIngredients = ingredients.filter((_, i) => i !== index);
+    setIngredients(updatedIngredients);
+  };
+
   const handlePostData = async () => {
     try {
       setIsPosting(true);
@@ -86,6 +183,13 @@ export default function CreatePostScreen() {
       // Validate required fields
       if (!formData.title || !formData.description || !formData.cookingTime || !formData.category) {
         Alert.alert('Error', 'Please fill in all required fields');
+        return;
+      }
+
+      // Validate ingredients - check for zero amounts
+      const invalidIngredients = ingredients.filter(ingredient => ingredient.amount <= 0);
+      if (invalidIngredients.length > 0) {
+        Alert.alert('Invalid Ingredients', 'Please enter a valid amount (greater than 0) for all ingredients or remove them.');
         return;
       }
 
@@ -105,7 +209,7 @@ export default function CreatePostScreen() {
         category: formData.category,
         author: formData.author,
         authorEmail: formData.authorEmail,
-        ingredients: [], 
+        ingredients: ingredients, // Include the ingredients array
         instructions: [],
         image: null, 
         imageStatus: selectedImage ? 'pending' : 'none' // Mark as pending if image selected
@@ -152,15 +256,9 @@ export default function CreatePostScreen() {
           }, 2000); // 2 second delay to show "Image processing..." status
         }
       } else {
-        // Show more detailed error if it a validation error
-        if (result.details && result.details.includes('difficulty')) {
-          Alert.alert(
-            'Difficulty Error', 
-            `The difficulty value "${formData.difficulty}" is not accepted by the server. ${result.details}`
-          );
-        } else {
-          Alert.alert('Error', result.error || 'Failed to post recipe');
-        }
+        // Show more detailed error if it's a validation error
+        const errorMessage = result.error || 'Failed to create recipe. Please try again.';
+        Alert.alert('Error', errorMessage);
       }
 
     } catch (error) {
@@ -175,7 +273,11 @@ export default function CreatePostScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Text style={styles.backButtonText}>← Back</Text>
@@ -184,7 +286,13 @@ export default function CreatePostScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.scrollView} 
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.formCard}>
           <Text style={styles.formTitle}>Share Your Recipe</Text>
           
@@ -287,6 +395,130 @@ export default function CreatePostScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Ingredients Section */}
+          <View style={styles.ingredientsContainer}>
+            <Text style={styles.ingredientsLabel}>Ingredients</Text>
+            
+            {/* Add Ingredient Button */}
+            <TouchableOpacity
+              style={styles.addIngredientButton}
+              onPress={() => {
+                setShowIngredientSearch(true);
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 100);
+              }}
+            >
+              <Text style={styles.addIngredientButtonText}>+ Add Ingredient</Text>
+            </TouchableOpacity>
+
+            {/* Ingredient Search */}
+            {showIngredientSearch && (
+              <View style={styles.ingredientSearchContainer}>
+                <TextInput
+                  style={styles.ingredientSearchInput}
+                  placeholder="Search for ingredients..."
+                  placeholderTextColor="#666"
+                  value={ingredientSearch}
+                  onChangeText={(text) => {
+                    setIngredientSearch(text);
+                    searchIngredients(text);
+                  }}
+                  autoFocus
+                />
+                <TouchableOpacity
+                  style={styles.cancelSearchButton}
+                  onPress={() => {
+                    setShowIngredientSearch(false);
+                    setIngredientSearch('');
+                    setIngredientOptions([]);
+                  }}
+                >
+                  <Text style={styles.cancelSearchText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Search Results */}
+            {ingredientOptions.length > 0 && (
+              <ScrollView 
+                style={styles.searchResults}
+                keyboardShouldPersistTaps="always"
+                nestedScrollEnabled={true}
+              >
+                {ingredientOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={styles.searchResultItem}
+                    onPress={() => addIngredient(option)}
+                  >
+                    <Text style={styles.searchResultName}>{option.name}</Text>
+                    {option.description && (
+                      <Text style={styles.searchResultDescription}>{option.description}</Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            {/* Selected Ingredients List */}
+            {ingredients.length > 0 && (
+              <View style={styles.selectedIngredientsContainer}>
+                <Text style={styles.selectedIngredientsTitle}>Selected Ingredients:</Text>
+                {ingredients.map((ingredient, index) => (
+                  <View key={index} style={styles.ingredientItem}>
+                    <Text style={styles.ingredientName}>{ingredient.name}</Text>
+                    <View style={styles.ingredientControls}>
+                      <TextInput
+                        style={styles.amountInput}
+                        placeholder="Amount"
+                        value={ingredient.amount.toString()}
+                        onChangeText={(text) => updateIngredientAmount(index, text)}
+                        keyboardType="numeric"
+                      />
+                      <TouchableOpacity
+                        style={styles.unitSelector}
+                        onPress={() => setShowUnitSelector(showUnitSelector === index ? null : index)}
+                      >
+                        <Text style={styles.unitSelectorText}>{ingredient.unit || 'Unit'}</Text>
+                        <Text style={styles.unitSelectorArrow}>▼</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.removeIngredientButton}
+                        onPress={() => removeIngredient(index)}
+                      >
+                        <Text style={styles.removeIngredientText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Unit Selector Dropdown */}
+                    {showUnitSelector === index && (
+                      <View style={styles.unitDropdown}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                          {commonUnits.map((unit) => (
+                            <TouchableOpacity
+                              key={unit}
+                              style={[
+                                styles.unitOption,
+                                ingredient.unit === unit && styles.unitOptionSelected
+                              ]}
+                              onPress={() => selectUnit(index, unit)}
+                            >
+                              <Text style={[
+                                styles.unitOptionText,
+                                ingredient.unit === unit && styles.unitOptionTextSelected
+                              ]}>{unit}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
           
           {userData && (
             <View style={styles.authorInfo}>
@@ -306,7 +538,7 @@ export default function CreatePostScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
     </>
   );
 }
@@ -513,6 +745,179 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   removeImageText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  ingredientsContainer: {
+    marginBottom: 20,
+  },
+  ingredientsLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  addIngredientButton: {
+    backgroundColor: '#ff8c00',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  addIngredientButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  ingredientSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  ingredientSearchInput: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
+    marginRight: 10,
+  },
+  cancelSearchButton: {
+    backgroundColor: '#666',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+  },
+  cancelSearchText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  searchResults: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginBottom: 15,
+    maxHeight: 150,
+    minHeight: 100,
+  },
+  searchResultItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  searchResultName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  searchResultDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  selectedIngredientsContainer: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 15,
+  },
+  selectedIngredientsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 15,
+  },
+  ingredientItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 15,
+    marginBottom: 15,
+  },
+  ingredientName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  ingredientControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  amountInput: {
+    flex: 1,
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    marginRight: 8,
+  },
+  unitSelector: {
+    flex: 1,
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  unitSelectorText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  unitSelectorArrow: {
+    fontSize: 10,
+    color: '#666',
+  },
+  unitDropdown: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  unitOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  unitOptionSelected: {
+    backgroundColor: '#ff8c00',
+    borderColor: '#ff8c00',
+  },
+  unitOptionText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  unitOptionTextSelected: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  removeIngredientButton: {
+    backgroundColor: '#ff4444',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeIngredientText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',

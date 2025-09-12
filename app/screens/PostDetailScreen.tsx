@@ -4,6 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 
+interface Ingredient {
+  ingredientId: number;
+  name: string;
+  amount: number;
+  unit: string;
+}
+
 interface Recipe {
   id: number;
   title: string;
@@ -21,6 +28,7 @@ interface Recipe {
   userVote?: 'upvote' | 'downvote' | null;
   image?: string;
   imageStatus?: 'none' | 'pending' | 'processing' | 'ready' | 'failed';
+  ingredients?: Ingredient[];
 }
 
 interface UserData {
@@ -197,7 +205,8 @@ export default function PostDetailScreen() {
             updatedAt: data.recipe.updatedAt,
             userVote: voteData.success ? voteData.userVote : null,
             image: data.recipe.image,
-            imageStatus: data.recipe.imageStatus
+            imageStatus: data.recipe.imageStatus,
+            ingredients: data.recipe.ingredients || []
           };
           setRecipe(updatedRecipe);
           setVoteStatusLoaded(true);
@@ -936,6 +945,24 @@ export default function PostDetailScreen() {
               <Text style={styles.description}>{recipe.description}</Text>
             </View>
 
+            {/* Ingredients Section */}
+            {recipe.ingredients && recipe.ingredients.length > 0 && (
+              <View style={styles.ingredientsSection}>
+                <Text style={styles.sectionTitle}>Ingredients</Text>
+                <View style={styles.ingredientsList}>
+                  {recipe.ingredients.map((ingredient, index) => (
+                    <View key={index} style={styles.ingredientItem}>
+                      <View style={styles.ingredientAmountContainer}>
+                        <Text style={styles.ingredientAmount}>{ingredient.amount}</Text>
+                        <Text style={styles.ingredientUnit}>{ingredient.unit}</Text>
+                      </View>
+                      <Text style={styles.ingredientName}>{ingredient.name}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {/* Voting and Comments Section */}
             <View style={styles.actionsContainer}>
               {/* Voting Controls */}
@@ -1319,6 +1346,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#444',
     lineHeight: 24,
+  },
+
+  ingredientsSection: {
+    marginBottom: 20,
+  },
+  ingredientsList: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+  },
+  ingredientItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  ingredientAmountContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    minWidth: 80,
+    marginRight: 12,
+  },
+  ingredientAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ff8c00',
+    marginRight: 4,
+  },
+  ingredientUnit: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  ingredientName: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
   },
   placeholderSection: {
     marginBottom: 20,

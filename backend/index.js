@@ -59,8 +59,9 @@ const recipeSchema = new mongoose.Schema({
     required: true
   },
   ingredients: [{
+    ingredientId: Number,
     name: String,
-    amount: String,
+    amount: Number,
     unit: String
   }],
   instructions: [{
@@ -504,7 +505,7 @@ async function ensureIngredientsTable() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log('Ingredients table ensured');
+    // console.log('Ingredients table ensured');
   } catch (err) {
     console.error('Error creating ingredients table:', err.message);
   }
@@ -648,7 +649,19 @@ app.post('/api/auth/login', async (req, res) => {
 // Get all ingredients
 app.get('/api/ingredients', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM ingredients ORDER BY name ASC');
+    const { search } = req.query;
+    
+    let query = 'SELECT * FROM ingredients';
+    let queryParams = [];
+    
+    if (search) {
+      query += ' WHERE LOWER(name) LIKE LOWER($1) OR LOWER(description) LIKE LOWER($1)';
+      queryParams.push(`%${search}%`);
+    }
+    
+    query += ' ORDER BY name ASC';
+    
+    const result = await pool.query(query, queryParams);
     res.json({
       success: true,
       ingredients: result.rows
@@ -880,6 +893,16 @@ app.post('/api/recipes', async (req, res) => {
       });
     }
 
+    // Validate ingredients - check for zero or negative amounts
+    if (ingredients && ingredients.length > 0) {
+      const invalidIngredients = ingredients.filter(ingredient => ingredient.amount <= 0);
+      if (invalidIngredients.length > 0) {
+        return res.status(400).json({ 
+          error: 'All ingredients must have an amount greater than 0' 
+        });
+      }
+    }
+
     const recipe = new Recipe({
       title,
       description,
@@ -922,6 +945,7 @@ app.put('/api/recipes/:id', async (req, res) => {
       cookingTime,
       difficulty,
       category,
+      ingredients,
       image,
       imageStatus
     } = req.body;
@@ -934,6 +958,17 @@ app.put('/api/recipes/:id', async (req, res) => {
       });
     }
 
+    // Validate ingredients - check for zero or negative amounts
+    if (ingredients && ingredients.length > 0) {
+      const invalidIngredients = ingredients.filter(ingredient => ingredient.amount <= 0);
+      if (invalidIngredients.length > 0) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'All ingredients must have an amount greater than 0' 
+        });
+      }
+    }
+
     // Find and update the recipe
     const updatedRecipe = await Recipe.findByIdAndUpdate(
       id,
@@ -943,6 +978,7 @@ app.put('/api/recipes/:id', async (req, res) => {
         cookingTime,
         difficulty: difficulty || 'Easy',
         category,
+        ...(ingredients !== undefined && { ingredients: ingredients }),
         ...(image !== undefined && { image: image }),
         ...(imageStatus !== undefined && { imageStatus: imageStatus }),
         updatedAt: new Date()
