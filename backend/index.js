@@ -501,11 +501,17 @@ async function ensureIngredientsTable() {
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL UNIQUE,
         description TEXT,
+        price DECIMAL(10,2) DEFAULT 0.00,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    // console.log('Ingredients table ensured');
+    
+    // Add price column if it doesn't exist (for existing tables)
+    await pool.query(`
+      ALTER TABLE ingredients 
+      ADD COLUMN IF NOT EXISTS price DECIMAL(10,2) DEFAULT 0.00
+    `);
   } catch (err) {
     console.error('Error creating ingredients table:', err.message);
   }
@@ -678,7 +684,7 @@ app.get('/api/ingredients', async (req, res) => {
 // Add new ingredient
 app.post('/api/ingredients', async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, price } = req.body;
     
     if (!name) {
       return res.status(400).json({
@@ -687,9 +693,17 @@ app.post('/api/ingredients', async (req, res) => {
       });
     }
 
+    const ingredientPrice = price ? parseFloat(price) : 0.00;
+    if (isNaN(ingredientPrice) || ingredientPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Price must be a valid non-negative number'
+      });
+    }
+
     const result = await pool.query(
-      'INSERT INTO ingredients (name, description) VALUES ($1, $2) RETURNING *',
-      [name.trim(), description?.trim() || null]
+      'INSERT INTO ingredients (name, description, price) VALUES ($1, $2, $3) RETURNING *',
+      [name.trim(), description?.trim() || null, ingredientPrice]
     );
 
     res.status(201).json({
@@ -718,7 +732,7 @@ app.post('/api/ingredients', async (req, res) => {
 app.put('/api/ingredients/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name, description, price } = req.body;
     
     if (!name) {
       return res.status(400).json({
@@ -727,9 +741,17 @@ app.put('/api/ingredients/:id', async (req, res) => {
       });
     }
 
+    const ingredientPrice = price ? parseFloat(price) : 0.00;
+    if (isNaN(ingredientPrice) || ingredientPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Price must be a valid non-negative number'
+      });
+    }
+
     const result = await pool.query(
-      'UPDATE ingredients SET name = $1, description = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
-      [name.trim(), description?.trim() || null, id]
+      'UPDATE ingredients SET name = $1, description = $2, price = $3, updated_at = NOW() WHERE id = $4 RETURNING *',
+      [name.trim(), description?.trim() || null, ingredientPrice, id]
     );
 
     if (result.rows.length === 0) {
@@ -1009,10 +1031,9 @@ app.put('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// Get all recipes (only active ones) - Optimized MongoDB query
+// Get all recipes (only active ones)
 app.get('/api/recipes', async (req, res) => {
   try {
-    // This would require 4+ table JOINs in pure SQL (recipes, users, ingredients, instructions, votes)
     const startTime = Date.now();
     
     const recipes = await Recipe.find({ isActive: 1 })

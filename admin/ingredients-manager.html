@@ -276,6 +276,17 @@
                             placeholder="Enter ingredient description..."
                         ></textarea>
                     </div>
+                    <div class="form-group">
+                        <label for="ingredientPrice">Price ($):</label>
+                        <input 
+                            type="number" 
+                            id="ingredientPrice" 
+                            name="price" 
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                        >
+                    </div>
                     <button type="submit" class="btn">Add Ingredient</button>
                 </form>
             </div>
@@ -335,8 +346,11 @@
                         <span class="ingredient-id">ID: ${ingredient.id}</span>
                     </div>
                     <div class="ingredient-description">${escapeHtml(ingredient.description || 'No description provided')}</div>
+                    <div class="ingredient-price" style="margin-bottom: 15px; color: #28a745; font-weight: 600;">
+                        Price: $${parseFloat(ingredient.price || 0).toFixed(2)}
+                    </div>
                     <div class="ingredient-actions">
-                        <button class="btn btn-secondary btn-small" onclick="editIngredient(${ingredient.id}, '${escapeHtml(ingredient.name)}', '${escapeHtml(ingredient.description || '')}')">Edit</button>
+                        <button class="btn btn-secondary btn-small" onclick="editIngredient(${ingredient.id}, '${escapeHtml(ingredient.name)}', '${escapeHtml(ingredient.description || '')}', '${ingredient.price || 0}')">Edit</button>
                         <button class="btn btn-danger btn-small" onclick="deleteIngredient(${ingredient.id}, '${escapeHtml(ingredient.name)}')">Delete</button>
                     </div>
                     <div id="edit-form-${ingredient.id}" class="edit-form" style="display: none;">
@@ -348,6 +362,10 @@
                             <div class="form-group">
                                 <label>Description:</label>
                                 <textarea id="edit-description-${ingredient.id}">${escapeHtml(ingredient.description || '')}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Price ($):</label>
+                                <input type="number" id="edit-price-${ingredient.id}" value="${parseFloat(ingredient.price || 0).toFixed(2)}" step="0.01" min="0">
                             </div>
                             <button type="submit" class="btn btn-small">Save</button>
                             <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit(${ingredient.id})">Cancel</button>
@@ -365,11 +383,18 @@
             const formData = new FormData(addForm);
             const ingredientData = {
                 name: formData.get('name').trim(),
-                description: formData.get('description').trim()
+                description: formData.get('description').trim(),
+                price: formData.get('price') || '0.00'
             };
             
             if (!ingredientData.name) {
                 showMessage('Please enter an ingredient name', 'error');
+                return;
+            }
+
+            const price = parseFloat(ingredientData.price);
+            if (isNaN(price) || price < 0) {
+                showMessage('Please enter a valid price (0 or greater)', 'error');
                 return;
             }
             
@@ -397,7 +422,7 @@
             }
         }
         
-        function editIngredient(id, name, description) {
+        function editIngredient(id, name, description, price) {
             // Hide all other edit forms
             document.querySelectorAll('.edit-form').forEach(form => {
                 form.style.display = 'none';
@@ -418,9 +443,16 @@
             
             const name = document.getElementById(`edit-name-${id}`).value.trim();
             const description = document.getElementById(`edit-description-${id}`).value.trim();
+            const price = document.getElementById(`edit-price-${id}`).value || '0.00';
             
             if (!name) {
                 showMessage('Please enter an ingredient name', 'error');
+                return;
+            }
+
+            const priceValue = parseFloat(price);
+            if (isNaN(priceValue) || priceValue < 0) {
+                showMessage('Please enter a valid price (0 or greater)', 'error');
                 return;
             }
             
@@ -430,7 +462,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ name, description })
+                    body: JSON.stringify({ name, description, price })
                 });
                 
                 const data = await response.json();
