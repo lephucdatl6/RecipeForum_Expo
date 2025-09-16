@@ -119,9 +119,14 @@ export default function RecipesForumScreen() {
   // Reload recipes when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      // This ensures get updated imageStatus after editing
-      loadRecipes();
-    }, [])
+      const reloadData = async () => {
+        await loadRecipes();
+        if (userData) {
+          setTimeout(() => loadUserVotes(), 100);
+        }
+      };
+      reloadData();
+    }, [userData])
   );
 
   const loadRecipes = async () => {
@@ -314,13 +319,15 @@ export default function RecipesForumScreen() {
             };
           }
         } catch (error) {
-          console.error('Error loading vote status:', error);
+          console.error('Error loading vote status for recipe:', recipe.id, error);
         }
         return recipe;
       });
 
       const recipesWithVotes = await Promise.all(votePromises);
       setRecipes(recipesWithVotes);
+      // Also update filtered recipes to maintain consistency
+      setFilteredRecipes(recipesWithVotes);
     } catch (error) {
       console.error('Error loading user votes:', error);
     }
