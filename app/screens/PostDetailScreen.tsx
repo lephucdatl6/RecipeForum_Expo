@@ -828,13 +828,15 @@ export default function PostDetailScreen() {
       const recipeAmountInBaseUnit = convertToBaseUnit(amount, unit);
       const packageSizeInBaseUnit = convertToBaseUnit(packageSize, packageUnit);
       
-      if (recipeAmountInBaseUnit && packageSizeInBaseUnit) {
+      // Check if units are compatible for comparison
+      if (recipeAmountInBaseUnit && packageSizeInBaseUnit && areUnitsCompatible(unit, packageUnit)) {
         // Calculate how many packages needed
         const packagesNeeded = Math.ceil(recipeAmountInBaseUnit / packageSizeInBaseUnit);
         return Math.max(1, packagesNeeded);
       }
       
-      // Fallback for non-convertible units
+      // Fallback for non-convertible or incompatible units
+      console.warn(`Unit mismatch: Recipe uses "${unit}" but package is sold in "${packageUnit}". Using fallback logic.`);
       return getShoppingQuantityFallback(amount, unit);
       
     } catch (error) {
@@ -867,30 +869,83 @@ export default function PostDetailScreen() {
     return null;
   };
 
-  // Fallback logic when package info isn't available
+  // Check if two units are compatible for conversion/comparison
+  const areUnitsCompatible = (unit1: string, unit2: string): boolean => {
+    const getUnitType = (unit: string): 'weight' | 'volume' | 'count' | 'unknown' => {
+      const unitLower = unit.toLowerCase();
+      
+      // Weight units
+      if (unitLower.includes('kg') || unitLower.includes('kilogram') ||
+          unitLower.includes('g') && !unitLower.includes('kg') ||
+          unitLower.includes('oz') || unitLower.includes('ounce') ||
+          unitLower.includes('lb') || unitLower.includes('pound')) {
+        return 'weight';
+      }
+      
+      // Volume units
+      if (unitLower.includes('l') && !unitLower.includes('ml') ||
+          unitLower.includes('ml') || unitLower.includes('cup') ||
+          unitLower.includes('tbsp') || unitLower.includes('tablespoon') ||
+          unitLower.includes('tsp') || unitLower.includes('teaspoon')) {
+        return 'volume';
+      }
+      
+      // Countable units
+      if (unitLower.includes('piece') || unitLower.includes('pcs') ||
+          unitLower.includes('item') || unitLower.includes('whole') ||
+          unitLower.includes('egg') || unitLower.includes('slice') ||
+          unitLower.includes('bottle') || unitLower.includes('can') ||
+          unitLower.includes('pack') || unitLower.includes('bunch')) {
+        return 'count';
+      }
+      
+      return 'unknown';
+    };
+    
+    const type1 = getUnitType(unit1);
+    const type2 = getUnitType(unit2);
+    
+    // Units are compatible if they're the same type (weight-weight, volume-volume, count-count)
+    return type1 === type2 && type1 !== 'unknown';
+  };
+
+  // Fallback logic when package info isn't available or units are incompatible
   const getShoppingQuantityFallback = (amount: number, unit: string): number => {
     const unitLower = unit.toLowerCase();
     
-    // Countable units - use recipe amount
+    // Countable units - use recipe amount (makes sense for eggs, pieces, etc.)
     if (unitLower.includes('piece') || unitLower.includes('pcs') || 
         unitLower.includes('item') || unitLower.includes('egg') ||
         unitLower.includes('whole') || unitLower.includes('bottle') ||
-        unitLower.includes('can') || unitLower.includes('pack')) {
-      return Math.ceil(amount); // Round up to ensure to have enough
+        unitLower.includes('can') || unitLower.includes('pack') ||
+        unitLower.includes('slice')) {
+      return Math.ceil(amount); // Round up to ensure enough
     }
     
-    // Small/fractional units - convert to 1 package
-    if (unitLower.includes('slice') || unitLower.includes('gram') || 
+    // Weight/volume units - assume 1 package will cover recipe needs
+    // This handles cases like "1 cup fish" or "500g eggs" gracefully
+    if (unitLower.includes('gram') || unitLower.includes('kg') ||
         unitLower.includes('cup') || unitLower.includes('tablespoon') ||
         unitLower.includes('tbsp') || unitLower.includes('teaspoon') ||
         unitLower.includes('tsp') || unitLower.includes('ml') ||
-        unitLower.includes('liter') || unitLower.includes('kg') ||
+        unitLower.includes('liter') || unitLower.includes('l') ||
         unitLower.includes('ounce') || unitLower.includes('oz') ||
         unitLower.includes('pound') || unitLower.includes('lb')) {
-      return 1; // Buy 1 package/container
+      
+      // For very large amounts, might need multiple packages
+      if (amount > 10) {
+        return Math.ceil(amount / 5); // Rough estimate: divide by 5
+      }
+      return 1; // Default: buy 1 package/container
     }
     
-    // Default: use recipe amount for unknown units
+    // For unusual units like "bunch", "head", etc. - use recipe amount
+    if (unitLower.includes('bunch') || unitLower.includes('head') ||
+        unitLower.includes('clove') || unitLower.includes('stalk')) {
+      return Math.ceil(amount);
+    }
+    
+    // Default: use recipe amount for completely unknown units
     return Math.max(1, Math.ceil(amount));
   };
 
