@@ -465,33 +465,28 @@ app.post('/api/users/profile/:email/upload-image', upload.single('profileImage')
   }
 });
 
-// Add created_at column if it doesn't exist
-async function ensureCreatedAtColumn() {
+// Create users table if it doesn't exist
+async function ensureUsersTable() {
   try {
     await pool.query(`
-      ALTER TABLE users 
-      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()
+      CREATE TABLE IF NOT EXISTS users (
+        user_id SERIAL PRIMARY KEY,
+        username VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        dob DATE,
+        phone VARCHAR(20),
+        points INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        profile_image_url TEXT
+      )
     `);
   } catch (err) {
-    console.error('Error adding created_at column:', err.message);
+    console.error('Error creating users table:', err.message);
   }
 }
 
-// Add profile_image_url column if it doesn't exist
-async function ensureProfileImageColumn() {
-  try {
-    await pool.query(`
-      ALTER TABLE users 
-      ADD COLUMN IF NOT EXISTS profile_image_url TEXT
-    `);
-    console.log('✅ Cloudinary connected successfully');
-  } catch (err) {
-    console.error('Error adding profile_image_url column:', err.message);
-  }
-}
-
-ensureCreatedAtColumn();
-ensureProfileImageColumn();
+ensureUsersTable();
 
 // Add ingredients table if it doesn't exist
 async function ensureIngredientsTable() {
@@ -502,15 +497,11 @@ async function ensureIngredientsTable() {
         name VARCHAR(255) NOT NULL UNIQUE,
         description TEXT,
         price DECIMAL(10,2) DEFAULT 0.00,
+        package_size DECIMAL(10,2) DEFAULT 1.00,
+        package_unit VARCHAR(50) DEFAULT 'pcs',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
-    `);
-    
-    // Add price column if it doesn't exist (for existing tables)
-    await pool.query(`
-      ALTER TABLE ingredients 
-      ADD COLUMN IF NOT EXISTS price DECIMAL(10,2) DEFAULT 0.00
     `);
   } catch (err) {
     console.error('Error creating ingredients table:', err.message);
@@ -518,6 +509,41 @@ async function ensureIngredientsTable() {
 }
 
 ensureIngredientsTable();
+
+// Add shopping cart tables if they don't exist
+async function ensureShoppingCartTables() {
+  try {
+    // Create shopping_carts table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS shopping_carts (
+        id SERIAL PRIMARY KEY,
+        user_email VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_email),
+        FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE
+      )
+    `);
+
+    // Create cart_items table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cart_items (
+        id SERIAL PRIMARY KEY,
+        cart_id INTEGER NOT NULL,
+        ingredient_id INTEGER NOT NULL,
+        quantity DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+        added_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(cart_id, ingredient_id),
+        FOREIGN KEY (cart_id) REFERENCES shopping_carts(id) ON DELETE CASCADE,
+        FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE CASCADE
+      )
+    `);    
+  } catch (err) {
+    console.error('Error creating shopping cart tables:', err.message);
+  }
+}
+
+ensureShoppingCartTables();
 
 // Authentication routes
 // Signup route
@@ -684,7 +710,7 @@ app.get('/api/ingredients', async (req, res) => {
 // Add new ingredient
 app.post('/api/ingredients', async (req, res) => {
   try {
-    const { name, description, price } = req.body;
+    const { name, description, price, package_size, package_unit } = req.body;
     
     if (!name) {
       return res.status(400).json({
@@ -701,9 +727,17 @@ app.post('/api/ingredients', async (req, res) => {
       });
     }
 
+    const ingredientPackageSize = package_size ? parseFloat(package_size) : 1.00;
+    if (isNaN(ingredientPackageSize) || ingredientPackageSize <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Package size must be a valid positive number'
+      });
+    }
+
     const result = await pool.query(
-      'INSERT INTO ingredients (name, description, price) VALUES ($1, $2, $3) RETURNING *',
-      [name.trim(), description?.trim() || null, ingredientPrice]
+      'INSERT INTO ingredients (name, description, price, package_size, package_unit) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [name.trim(), description?.trim() || null, ingredientPrice, ingredientPackageSize, package_unit || 'piece']
     );
 
     res.status(201).json({
@@ -732,7 +766,7 @@ app.post('/api/ingredients', async (req, res) => {
 app.put('/api/ingredients/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price } = req.body;
+    const { name, description, price, package_size, package_unit } = req.body;
     
     if (!name) {
       return res.status(400).json({
@@ -749,9 +783,17 @@ app.put('/api/ingredients/:id', async (req, res) => {
       });
     }
 
+    const ingredientPackageSize = package_size ? parseFloat(package_size) : 1.00;
+    if (isNaN(ingredientPackageSize) || ingredientPackageSize <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Package size must be a valid positive number'
+      });
+    }
+
     const result = await pool.query(
-      'UPDATE ingredients SET name = $1, description = $2, price = $3, updated_at = NOW() WHERE id = $4 RETURNING *',
-      [name.trim(), description?.trim() || null, ingredientPrice, id]
+      'UPDATE ingredients SET name = $1, description = $2, price = $3, package_size = $4, package_unit = $5, updated_at = NOW() WHERE id = $6 RETURNING *',
+      [name.trim(), description?.trim() || null, ingredientPrice, ingredientPackageSize, package_unit || 'piece', id]
     );
 
     if (result.rows.length === 0) {
@@ -807,6 +849,329 @@ app.delete('/api/ingredients/:id', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to delete ingredient' 
+    });
+  }
+});
+
+// Get single ingredient by ID (for smart cart calculations)
+app.get('/api/ingredients/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query('SELECT * FROM ingredients WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ingredient not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      ingredient: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error fetching ingredient:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch ingredient' 
+    });
+  }
+});
+
+// ==================== SHOPPING CART ENDPOINTS (PostgreSQL) ====================
+
+// Get user's shopping cart
+app.get('/api/cart/:userEmail', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+
+    // Get or create cart for user
+    let cartResult = await pool.query(
+      'SELECT * FROM shopping_carts WHERE user_email = $1',
+      [userEmail]
+    );
+
+    if (cartResult.rows.length === 0) {
+      // Create new cart if it doesn't exist
+      cartResult = await pool.query(
+        'INSERT INTO shopping_carts (user_email) VALUES ($1) RETURNING *',
+        [userEmail]
+      );
+    }
+
+    const cart = cartResult.rows[0];
+
+    // Get cart items with ingredient details
+    const itemsResult = await pool.query(`
+      SELECT 
+        ci.id,
+        ci.quantity,
+        ci.added_at,
+        i.id as ingredient_id,
+        i.name as ingredient_name,
+        i.description as ingredient_description,
+        i.price as ingredient_price,
+        i.package_size,
+        i.package_unit
+      FROM cart_items ci
+      JOIN ingredients i ON ci.ingredient_id = i.id
+      WHERE ci.cart_id = $1
+      ORDER BY ci.added_at DESC
+    `, [cart.id]);
+
+    res.json({
+      success: true,
+      cart: {
+        id: cart.id,
+        userEmail: cart.user_email,
+        createdAt: cart.created_at,
+        updatedAt: cart.updated_at,
+        items: itemsResult.rows,
+        totalItems: itemsResult.rows.length,
+        totalPrice: itemsResult.rows.reduce((sum, item) => 
+          sum + (parseFloat(item.quantity) * parseFloat(item.ingredient_price || 0)), 0
+        ).toFixed(2)
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching cart:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch cart' 
+    });
+  }
+});
+
+// Add ingredient to cart
+app.post('/api/cart/:userEmail/items', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+    const { ingredientId, quantity } = req.body;
+
+    if (!ingredientId || !quantity) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ingredient ID and quantity are required'
+      });
+    }
+
+    // Validate quantity
+    const itemQuantity = parseFloat(quantity);
+    if (isNaN(itemQuantity) || itemQuantity <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Quantity must be a positive number'
+      });
+    }
+
+    // Verify ingredient exists
+    const ingredientCheck = await pool.query(
+      'SELECT * FROM ingredients WHERE id = $1',
+      [ingredientId]
+    );
+
+    if (ingredientCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ingredient not found'
+      });
+    }
+
+    // Get or create cart
+    let cartResult = await pool.query(
+      'SELECT * FROM shopping_carts WHERE user_email = $1',
+      [userEmail]
+    );
+
+    if (cartResult.rows.length === 0) {
+      cartResult = await pool.query(
+        'INSERT INTO shopping_carts (user_email) VALUES ($1) RETURNING *',
+        [userEmail]
+      );
+    }
+
+    const cart = cartResult.rows[0];
+
+    // Check if item already exists in cart
+    const existingItem = await pool.query(
+      'SELECT * FROM cart_items WHERE cart_id = $1 AND ingredient_id = $2',
+      [cart.id, ingredientId]
+    );
+
+    if (existingItem.rows.length > 0) {
+      // Update existing item quantity
+      const newQuantity = parseFloat(existingItem.rows[0].quantity) + itemQuantity;
+      const updateResult = await pool.query(
+        'UPDATE cart_items SET quantity = $1 WHERE id = $2 RETURNING *',
+        [newQuantity, existingItem.rows[0].id]
+      );
+
+      res.json({
+        success: true,
+        message: 'Cart item quantity updated',
+        item: updateResult.rows[0]
+      });
+    } else {
+      // Add new item to cart
+      const result = await pool.query(
+        'INSERT INTO cart_items (cart_id, ingredient_id, quantity) VALUES ($1, $2, $3) RETURNING *',
+        [cart.id, ingredientId, itemQuantity]
+      );
+
+      res.status(201).json({
+        success: true,
+        message: 'Item added to cart',
+        item: result.rows[0]
+      });
+    }
+
+    // Update cart timestamp
+    await pool.query(
+      'UPDATE shopping_carts SET updated_at = NOW() WHERE id = $1',
+      [cart.id]
+    );
+
+  } catch (err) {
+    console.error('Error adding item to cart:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to add item to cart' 
+    });
+  }
+});
+
+// Update cart item quantity
+app.put('/api/cart/items/:itemId', async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { quantity } = req.body;
+
+    if (!quantity) {
+      return res.status(400).json({
+        success: false,
+        error: 'Quantity is required'
+      });
+    }
+
+    const itemQuantity = parseFloat(quantity);
+    if (isNaN(itemQuantity) || itemQuantity <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Quantity must be a positive number'
+      });
+    }
+
+    const result = await pool.query(
+      'UPDATE cart_items SET quantity = $1 WHERE id = $2 RETURNING *',
+      [itemQuantity, itemId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cart item not found'
+      });
+    }
+
+    // Update cart timestamp
+    await pool.query(`
+      UPDATE shopping_carts 
+      SET updated_at = NOW() 
+      WHERE id = (SELECT cart_id FROM cart_items WHERE id = $1)
+    `, [itemId]);
+
+    res.json({
+      success: true,
+      message: 'Cart item updated',
+      item: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error updating cart item:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update cart item' 
+    });
+  }
+});
+
+// Remove item from cart
+app.delete('/api/cart/items/:itemId', async (req, res) => {
+  try {
+    const { itemId } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM cart_items WHERE id = $1 RETURNING *',
+      [itemId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cart item not found'
+      });
+    }
+
+    // Update cart timestamp
+    await pool.query(`
+      UPDATE shopping_carts 
+      SET updated_at = NOW() 
+      WHERE id = $1
+    `, [result.rows[0].cart_id]);
+
+    res.json({
+      success: true,
+      message: 'Item removed from cart',
+      item: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error removing cart item:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to remove cart item' 
+    });
+  }
+});
+
+// Clear entire cart
+app.delete('/api/cart/:userEmail', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+
+    // Get cart
+    const cartResult = await pool.query(
+      'SELECT * FROM shopping_carts WHERE user_email = $1',
+      [userEmail]
+    );
+
+    if (cartResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cart not found'
+      });
+    }
+
+    const cart = cartResult.rows[0];
+
+    // Delete all cart items
+    await pool.query('DELETE FROM cart_items WHERE cart_id = $1', [cart.id]);
+
+    // Update cart timestamp
+    await pool.query(
+      'UPDATE shopping_carts SET updated_at = NOW() WHERE id = $1',
+      [cart.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Cart cleared successfully'
+    });
+  } catch (err) {
+    console.error('Error clearing cart:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to clear cart' 
     });
   }
 });

@@ -1,9 +1,8 @@
 import { router } from 'expo-router';
-import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface BottomNavigationProps {
-  activeTab: 'profile' | 'forum' | 'recipes' | 'notifications';
+  activeTab: 'profile' | 'forum' | 'recipes' | 'notifications' | 'cart';
   userData?: any;
 }
 
@@ -46,6 +45,12 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
           params: navigationParams
         });
         break;
+      case 'cart':
+        router.replace({
+          pathname: './ShoppingCartScreen',
+          params: navigationParams
+        });
+        break;
     }
   };
 
@@ -69,6 +74,16 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
           <Text style={[styles.icon, activeTab === 'recipes' && styles.activeIcon]}>📖</Text>
         </View>
         <Text style={[styles.label, activeTab === 'recipes' && styles.activeLabel]}>Recipes List</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.tab} 
+        onPress={() => navigateToTab('cart')}
+      >
+        <View style={styles.iconContainer}>
+          <Text style={[styles.icon, activeTab === 'cart' && styles.activeIcon]}>🛒</Text>
+        </View>
+        <Text style={[styles.label, activeTab === 'cart' && styles.activeLabel]}>Cart</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 

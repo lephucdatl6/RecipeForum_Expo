@@ -146,11 +146,9 @@ export default function CreatePostScreen() {
 
   const updateIngredientAmount = (index: number, amount: string) => {
     const updatedIngredients = [...ingredients];
-    const numericAmount = parseFloat(amount);
-    
-    // Only update if the amount is valid (greater than 0) or if it empty (user is typing)
-    if (amount === '' || (!isNaN(numericAmount) && numericAmount > 0)) {
-      updatedIngredients[index].amount = numericAmount || 0;
+        if (amount === '' || /^\d*\.?\d*$/.test(amount)) {
+      const numericAmount = parseFloat(amount);
+      updatedIngredients[index].amount = isNaN(numericAmount) ? 0 : numericAmount;
       setIngredients(updatedIngredients);
     }
   };
@@ -470,7 +468,7 @@ export default function CreatePostScreen() {
                         placeholder="Amount"
                         value={ingredient.amount.toString()}
                         onChangeText={(text) => updateIngredientAmount(index, text)}
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                       />
                       <TouchableOpacity
                         style={styles.unitSelector}

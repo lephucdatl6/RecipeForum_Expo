@@ -85,6 +85,9 @@ export default function PostDetailScreen() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const keyboardAnimatedValue = useRef(new Animated.Value(0)).current;
 
+  // Cart-related states
+  const [isAddingToCart, setIsAddingToCart] = useState<{[key: number]: boolean}>({});
+
   useEffect(() => {
     if (params.recipe) {
       try {
@@ -805,6 +808,132 @@ export default function PostDetailScreen() {
     }
   };
 
+  // Smart quantity conversion for shopping cart with realistic package sizes
+  const getShoppingQuantity = async (amount: number, unit: string, ingredientId: number): Promise<number> => {
+    try {
+      // Get ingredient package information
+      const response = await fetch(`${API_BASE_URL}/api/ingredients/${ingredientId}`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        console.warn('Failed to get ingredient package info, using fallback logic');
+        return getShoppingQuantityFallback(amount, unit);
+      }
+      
+      const ingredient = data.ingredient;
+      const packageSize = parseFloat(ingredient.package_size) || 1;
+      const packageUnit = ingredient.package_unit || 'piece';
+      
+      // Convert units to same base for comparison
+      const recipeAmountInBaseUnit = convertToBaseUnit(amount, unit);
+      const packageSizeInBaseUnit = convertToBaseUnit(packageSize, packageUnit);
+      
+      if (recipeAmountInBaseUnit && packageSizeInBaseUnit) {
+        // Calculate how many packages needed
+        const packagesNeeded = Math.ceil(recipeAmountInBaseUnit / packageSizeInBaseUnit);
+        return Math.max(1, packagesNeeded);
+      }
+      
+      // Fallback for non-convertible units
+      return getShoppingQuantityFallback(amount, unit);
+      
+    } catch (error) {
+      console.error('Error getting package info:', error);
+      return getShoppingQuantityFallback(amount, unit);
+    }
+  };
+
+  // Convert units to grams/ml for comparison
+  const convertToBaseUnit = (amount: number, unit: string): number | null => {
+    const unitLower = unit.toLowerCase();
+    
+    // Weight conversions to grams
+    if (unitLower.includes('kg') || unitLower.includes('kilogram')) return amount * 1000;
+    if (unitLower.includes('g') && !unitLower.includes('kg')) return amount;
+    if (unitLower.includes('oz') || unitLower.includes('ounce')) return amount * 28.35;
+    if (unitLower.includes('lb') || unitLower.includes('pound')) return amount * 453.6;
+    
+    // Volume conversions to ml
+    if (unitLower.includes('l') && !unitLower.includes('ml')) return amount * 1000; // liters to ml
+    if (unitLower.includes('ml')) return amount;
+    if (unitLower.includes('cup')) return amount * 240; // approximate
+    if (unitLower.includes('tbsp') || unitLower.includes('tablespoon')) return amount * 15;
+    if (unitLower.includes('tsp') || unitLower.includes('teaspoon')) return amount * 5;
+    
+    // Countable items
+    if (unitLower.includes('piece') || unitLower.includes('pcs') || 
+        unitLower.includes('item') || unitLower.includes('whole')) return amount;
+    
+    return null;
+  };
+
+  // Fallback logic when package info isn't available
+  const getShoppingQuantityFallback = (amount: number, unit: string): number => {
+    const unitLower = unit.toLowerCase();
+    
+    // Countable units - use recipe amount
+    if (unitLower.includes('piece') || unitLower.includes('pcs') || 
+        unitLower.includes('item') || unitLower.includes('egg') ||
+        unitLower.includes('whole') || unitLower.includes('bottle') ||
+        unitLower.includes('can') || unitLower.includes('pack')) {
+      return Math.ceil(amount); // Round up to ensure to have enough
+    }
+    
+    // Small/fractional units - convert to 1 package
+    if (unitLower.includes('slice') || unitLower.includes('gram') || 
+        unitLower.includes('cup') || unitLower.includes('tablespoon') ||
+        unitLower.includes('tbsp') || unitLower.includes('teaspoon') ||
+        unitLower.includes('tsp') || unitLower.includes('ml') ||
+        unitLower.includes('liter') || unitLower.includes('kg') ||
+        unitLower.includes('ounce') || unitLower.includes('oz') ||
+        unitLower.includes('pound') || unitLower.includes('lb')) {
+      return 1; // Buy 1 package/container
+    }
+    
+    // Default: use recipe amount for unknown units
+    return Math.max(1, Math.ceil(amount));
+  };
+
+  // Add ingredient to shopping cart
+  const addToCart = async (ingredient: Ingredient) => {
+    if (!userData) {
+      Alert.alert('Login Required', 'Please log in to add items to your cart.');
+      return;
+    }
+
+    setIsAddingToCart(prev => ({ ...prev, [ingredient.ingredientId]: true }));
+
+    // Convert recipe amount to smart shopping quantity
+    const shoppingQuantity = await getShoppingQuantity(ingredient.amount, ingredient.unit, ingredient.ingredientId);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ingredientId: ingredient.ingredientId,
+          quantity: shoppingQuantity
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const quantityText = shoppingQuantity === 1 ? '1' : `${shoppingQuantity}`;
+        Alert.alert('Success', `${quantityText} ${ingredient.name} added to cart!`);
+      } else {
+        Alert.alert('Error', data.error || 'Failed to add item to cart');
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      Alert.alert('Error', 'Failed to add item to cart. Please try again.');
+    } finally {
+      setIsAddingToCart(prev => ({ ...prev, [ingredient.ingredientId]: false }));
+    }
+  };
+
   // Check if current user is the owner of the post
   const isOwner = userData && recipe && userData.email === recipe.authorEmail;
 
@@ -952,11 +1081,25 @@ export default function PostDetailScreen() {
                 <View style={styles.ingredientsList}>
                   {recipe.ingredients.map((ingredient, index) => (
                     <View key={index} style={styles.ingredientItem}>
-                      <View style={styles.ingredientAmountContainer}>
-                        <Text style={styles.ingredientAmount}>{ingredient.amount}</Text>
-                        <Text style={styles.ingredientUnit}>{ingredient.unit}</Text>
+                      <View style={styles.ingredientInfo}>
+                        <View style={styles.ingredientAmountContainer}>
+                          <Text style={styles.ingredientAmount}>{ingredient.amount}</Text>
+                          <Text style={styles.ingredientUnit}>{ingredient.unit}</Text>
+                        </View>
+                        <Text style={styles.ingredientName}>{ingredient.name}</Text>
                       </View>
-                      <Text style={styles.ingredientName}>{ingredient.name}</Text>
+                      <TouchableOpacity 
+                        style={[
+                          styles.addToCartButton,
+                          isAddingToCart[ingredient.ingredientId] && styles.addToCartButtonDisabled
+                        ]}
+                        onPress={() => addToCart(ingredient)}
+                        disabled={isAddingToCart[ingredient.ingredientId]}
+                      >
+                        <Text style={styles.addToCartButtonText}>
+                          {isAddingToCart[ingredient.ingredientId] ? '...' : '+'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   ))}
                 </View>
@@ -1362,6 +1505,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
+    justifyContent: 'space-between',
+  },
+  ingredientInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   ingredientAmountContainer: {
     flexDirection: 'row',
@@ -1384,6 +1533,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     flex: 1,
+  },
+  addToCartButton: {
+    backgroundColor: '#ff8c00',
+    borderRadius: 20,
+    width: 35,
+    height: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  addToCartButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  addToCartButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   placeholderSection: {
     marginBottom: 20,
