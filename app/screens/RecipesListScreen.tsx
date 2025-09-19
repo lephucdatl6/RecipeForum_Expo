@@ -1,7 +1,8 @@
-import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 interface UserData {
   user_id: number;
@@ -16,6 +17,7 @@ interface UserData {
 export default function RecipesListScreen() {
   const params = useLocalSearchParams();
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [cartItemCount, setCartItemCount] = useState<number>(0);
 
   useEffect(() => {
     if (params.userData) {
@@ -30,6 +32,40 @@ export default function RecipesListScreen() {
       console.log('RecipesList - No user data available');
     }
   }, [params.userData]);
+
+  // Function to load cart item count
+  const loadCartItemCount = useCallback(async () => {
+    if (!userData?.email) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}`);
+      const data = await response.json();
+      
+      if (data.success && data.cart && data.cart.items) {
+        const itemCount = data.cart.items.length;
+        setCartItemCount(itemCount);
+      } else {
+        setCartItemCount(0);
+      }
+    } catch (error) {
+      console.error('Error loading cart count:', error);
+      setCartItemCount(0);
+    }
+  }, [userData?.email]);
+
+  useEffect(() => {
+    if (userData?.email) {
+      loadCartItemCount();
+    }
+  }, [userData?.email, loadCartItemCount]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (userData?.email) {
+        loadCartItemCount();
+      }
+    }, [userData?.email, loadCartItemCount])
+  );
 
   return (
     <View style={styles.container}>
@@ -46,7 +82,7 @@ export default function RecipesListScreen() {
           </Text>
         </View>
       </ScrollView>
-      <BottomNavigation activeTab="recipes" userData={userData} />
+      <BottomNavigation activeTab="recipes" userData={userData} cartItemCount={cartItemCount} />
     </View>
   );
 }

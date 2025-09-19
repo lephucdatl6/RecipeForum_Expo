@@ -87,6 +87,43 @@ export default function PostDetailScreen() {
 
   // Cart-related states
   const [isAddingToCart, setIsAddingToCart] = useState<{[key: number]: boolean}>({});
+  const [cartItemCount, setCartItemCount] = useState<number>(0);
+
+  // Function to load cart item count
+  const loadCartItemCount = useCallback(async () => {
+    if (!userData?.email) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}`);
+      const data = await response.json();
+      
+      if (data.success && data.cart && data.cart.items) {
+        // Count the number of distinct items (rows) in cart, not the total quantity
+        const itemCount = data.cart.items.length;
+        setCartItemCount(itemCount);
+      } else {
+        setCartItemCount(0);
+      }
+    } catch (error) {
+      console.error('Error loading cart count:', error);
+      setCartItemCount(0);
+    }
+  }, [userData?.email]);
+
+  // Function to handle navigation to cart screen
+  const handleCartNavigation = () => {
+    if (!userData) {
+      Alert.alert('Login Required', 'Please log in to view your cart.');
+      return;
+    }
+    
+    router.push({
+      pathname: './ShoppingCartScreen',
+      params: {
+        userData: JSON.stringify(userData)
+      }
+    });
+  };
 
   useEffect(() => {
     if (params.recipe) {
@@ -139,6 +176,13 @@ export default function PostDetailScreen() {
 
     loadInitialVoteStatus();
   }, [userData, recipe, voteStatusLoaded]);
+
+  // Load cart item count when user data is available
+  useEffect(() => {
+    if (userData?.email) {
+      loadCartItemCount();
+    }
+  }, [userData?.email, loadCartItemCount]);
 
   // Handle updated email from EditProfileScreen
   useEffect(() => {
@@ -232,11 +276,12 @@ export default function PostDetailScreen() {
           }
           loadComments();
           loadCommentStats();
+          loadCartItemCount(); // Refresh cart count when screen comes into focus
         }, 200);
         
         return () => clearTimeout(timeoutId);
       }
-    }, [refreshRecipeData, refreshUserData, userData?.email, lastProcessedUpdatedEmail, recipe?.id, voteStatusLoaded])
+    }, [refreshRecipeData, refreshUserData, userData?.email, lastProcessedUpdatedEmail, recipe?.id, voteStatusLoaded, loadCartItemCount])
   );
 
   // Load author profile image
@@ -353,6 +398,12 @@ export default function PostDetailScreen() {
             const parsedData = JSON.parse(storedUserData);
             setUserData(parsedData);
             setOriginalUserData(parsedData);
+            // Load cart count after user data is set
+            if (parsedData?.email) {
+              setTimeout(() => {
+                loadCartItemCount();
+              }, 100);
+            }
           }
         } catch (error) {
           console.error('Error loading user data:', error);
@@ -850,17 +901,17 @@ export default function PostDetailScreen() {
     const unitLower = unit.toLowerCase();
     
     // Weight conversions to grams
-    if (unitLower.includes('kg') || unitLower.includes('kilogram')) return amount * 1000;
-    if (unitLower.includes('g') && !unitLower.includes('kg')) return amount;
-    if (unitLower.includes('oz') || unitLower.includes('ounce')) return amount * 28.35;
-    if (unitLower.includes('lb') || unitLower.includes('pound')) return amount * 453.6;
+    if (unitLower.includes('kg') || unitLower.includes('kilogram')) return amount * 1000; // kg → g
+    if (unitLower.includes('g') && !unitLower.includes('kg')) return amount; // g → g
+    if (unitLower.includes('oz') || unitLower.includes('ounce')) return amount * 28.35; // oz → g (approx)
+    if (unitLower.includes('lb') || unitLower.includes('pound')) return amount * 453.6; // lb → g (approx)
     
     // Volume conversions to ml
     if (unitLower.includes('l') && !unitLower.includes('ml')) return amount * 1000; // liters to ml
-    if (unitLower.includes('ml')) return amount;
-    if (unitLower.includes('cup')) return amount * 240; // approximate
-    if (unitLower.includes('tbsp') || unitLower.includes('tablespoon')) return amount * 15;
-    if (unitLower.includes('tsp') || unitLower.includes('teaspoon')) return amount * 5;
+    if (unitLower.includes('ml')) return amount; // ml → ml
+    if (unitLower.includes('cup')) return amount * 240; // cup → ml (approximate)
+    if (unitLower.includes('tbsp') || unitLower.includes('tablespoon')) return amount * 15; // tbsp → ml
+    if (unitLower.includes('tsp') || unitLower.includes('teaspoon')) return amount * 5; // tsp → ml
     
     // Countable items
     if (unitLower.includes('piece') || unitLower.includes('pcs') || 
@@ -905,11 +956,11 @@ export default function PostDetailScreen() {
     const type1 = getUnitType(unit1);
     const type2 = getUnitType(unit2);
     
-    // Units are compatible if they're the same type (weight-weight, volume-volume, count-count)
+    // Units are compatible if they are the same type (weight-weight, volume-volume, count-count)
     return type1 === type2 && type1 !== 'unknown';
   };
 
-  // Fallback logic when package info isn't available or units are incompatible
+  // Fallback logic when package info is not available or units are incompatible
   const getShoppingQuantityFallback = (amount: number, unit: string): number => {
     const unitLower = unit.toLowerCase();
     
@@ -923,7 +974,7 @@ export default function PostDetailScreen() {
     }
     
     // Weight/volume units - assume 1 package will cover recipe needs
-    // This handles cases like "1 cup fish" or "500g eggs" gracefully
+    // This handles cases like "1 cup fish" or "500g eggs"
     if (unitLower.includes('gram') || unitLower.includes('kg') ||
         unitLower.includes('cup') || unitLower.includes('tablespoon') ||
         unitLower.includes('tbsp') || unitLower.includes('teaspoon') ||
@@ -978,6 +1029,10 @@ export default function PostDetailScreen() {
       if (data.success) {
         const quantityText = shoppingQuantity === 1 ? '1' : `${shoppingQuantity}`;
         Alert.alert('Success', `${quantityText} ${ingredient.name} added to cart!`);
+        // Refresh cart count after successful addition
+        setTimeout(() => {
+          loadCartItemCount();
+        }, 500); // Small delay to ensure backend has processed the addition
       } else {
         Alert.alert('Error', data.error || 'Failed to add item to cart');
       }
@@ -1002,7 +1057,18 @@ export default function PostDetailScreen() {
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Post Details</Text>
-          <View style={styles.placeholder} />
+          <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
+            <View style={styles.cartIconContainer}>
+              <Text style={styles.cartIcon}>🛒</Text>
+              {cartItemCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>
+                    {Math.floor(cartItemCount) > 99 ? '99+' : Math.floor(cartItemCount)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Post not found</Text>
@@ -1025,7 +1091,18 @@ export default function PostDetailScreen() {
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Post Details</Text>
-          <View style={styles.placeholder} />
+          <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
+            <View style={styles.cartIconContainer}>
+              <Text style={styles.cartIcon}>🛒</Text>
+              {cartItemCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>
+                    {Math.floor(cartItemCount) > 99 ? '99+' : Math.floor(cartItemCount)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
         </View>
 
         <ScrollView 
@@ -1376,8 +1453,36 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  placeholder: {
-    width: 60,
+  cartButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartIconContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartIcon: {
+    fontSize: 24,
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#FF6347',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   scrollView: {
     flex: 1,

@@ -345,7 +345,11 @@ export default function ShoppingCartScreen() {
           </View>
         )}
       </ScrollView>
-      <BottomNavigation activeTab="cart" userData={userData} />
+      <BottomNavigation 
+        activeTab="cart" 
+        userData={userData} 
+        cartItemCount={cart?.items?.length || 0} 
+      />
     </View>
     </>
   );

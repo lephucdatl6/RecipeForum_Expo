@@ -4,9 +4,10 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface BottomNavigationProps {
   activeTab: 'profile' | 'forum' | 'recipes' | 'notifications' | 'cart';
   userData?: any;
+  cartItemCount?: number;
 }
 
-export default function BottomNavigation({ activeTab, userData }: BottomNavigationProps) {
+export default function BottomNavigation({ activeTab, userData, cartItemCount = 0 }: BottomNavigationProps) {
   const navigateToTab = (tab: string) => {
     // Don't navigate if the user clicks on the currently active tab
     if (tab === activeTab) {
@@ -82,6 +83,13 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
       >
         <View style={styles.iconContainer}>
           <Text style={[styles.icon, activeTab === 'cart' && styles.activeIcon]}>🛒</Text>
+          {cartItemCount > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>
+                {cartItemCount > 99 ? '99+' : cartItemCount}
+              </Text>
+            </View>
+          )}
         </View>
         <Text style={[styles.label, activeTab === 'cart' && styles.activeLabel]}>Cart</Text>
       </TouchableOpacity>
@@ -151,5 +159,23 @@ const styles = StyleSheet.create({
   activeLabel: {
     color: '#007AFF',
     fontWeight: '600',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });

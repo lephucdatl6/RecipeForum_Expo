@@ -45,6 +45,9 @@ export default function RecipesForumScreen() {
   
   // Image status polling
   const [pollingRecipes, setPollingRecipes] = useState<Set<string>>(new Set());
+  
+  // Cart count state
+  const [cartItemCount, setCartItemCount] = useState<number>(0);
 
   const sortOptions = [
     { key: 'newest', label: 'Newest' },
@@ -67,6 +70,26 @@ export default function RecipesForumScreen() {
     // Load recipes when component mounts
     loadRecipes();
   }, [params.userData]);
+
+  // Function to load cart item count
+  const loadCartItemCount = useCallback(async () => {
+    if (!userData?.email) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}`);
+      const data = await response.json();
+      
+      if (data.success && data.cart && data.cart.items) {
+        const itemCount = data.cart.items.length;
+        setCartItemCount(itemCount);
+      } else {
+        setCartItemCount(0);
+      }
+    } catch (error) {
+      console.error('Error loading cart count:', error);
+      setCartItemCount(0);
+    }
+  }, [userData?.email]);
 
   // Filter recipes based on search query
   const filterRecipes = useCallback((query: string, recipeList: Recipe[]) => {
@@ -107,6 +130,13 @@ export default function RecipesForumScreen() {
     setFilteredRecipes(sorted);
   }, [searchQuery, recipes, sortBy, filterRecipes, sortRecipes]);
 
+  // Load cart count when user data is available
+  useEffect(() => {
+    if (userData?.email) {
+      loadCartItemCount();
+    }
+  }, [userData?.email, loadCartItemCount]);
+
   const handleSearch = (text: string) => {
     setSearchQuery(text);
   };
@@ -123,10 +153,11 @@ export default function RecipesForumScreen() {
         await loadRecipes();
         if (userData) {
           setTimeout(() => loadUserVotes(), 100);
+          setTimeout(() => loadCartItemCount(), 100);
         }
       };
       reloadData();
-    }, [userData])
+    }, [userData, loadCartItemCount])
   );
 
   const loadRecipes = async () => {
@@ -701,7 +732,7 @@ export default function RecipesForumScreen() {
           <Text style={styles.fabText}>➕</Text>
         </TouchableOpacity>
 
-        <BottomNavigation activeTab="forum" userData={userData} />
+        <BottomNavigation activeTab="forum" userData={userData} cartItemCount={cartItemCount} />
       </View>
     </TouchableWithoutFeedback>
   );

@@ -24,6 +24,7 @@ export default function UserProfileScreen() {
   const [originalUserData, setOriginalUserData] = useState<UserData | null>(null);
   const [lastProcessedUpdatedEmail, setLastProcessedUpdatedEmail] = useState<string>('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [cartItemCount, setCartItemCount] = useState<number>(0);
 
   // Initialize user data from params on first load
   useEffect(() => {
@@ -50,6 +51,26 @@ export default function UserProfileScreen() {
 
     initializeUserData();
   }, [params.userData]);
+
+  // Function to load cart item count
+  const loadCartItemCount = useCallback(async () => {
+    if (!userData?.email) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}`);
+      const data = await response.json();
+      
+      if (data.success && data.cart && data.cart.items) {
+        const itemCount = data.cart.items.length;
+        setCartItemCount(itemCount);
+      } else {
+        setCartItemCount(0);
+      }
+    } catch (error) {
+      console.error('Error loading cart count:', error);
+      setCartItemCount(0);
+    }
+  }, [userData?.email]);
 
   // Helper function to fetch user data with a specific email
   const fetchUserDataWithEmail = useCallback(async (emailToFetch: string, skipErrorLog = false) => {
@@ -117,12 +138,22 @@ export default function UserProfileScreen() {
     }
   }, [userEmail, originalUserData, fetchUserData]);
 
+  // Load cart count when user data is available
+  useEffect(() => {
+    if (userData?.email) {
+      loadCartItemCount();
+    }
+  }, [userData?.email, loadCartItemCount]);
+
   useFocusEffect(
     useCallback(() => {
       if (userEmail && originalUserData) {
         fetchUserDataWithEmail(userEmail, true); 
       }
-    }, [userEmail, originalUserData, fetchUserDataWithEmail])
+      if (userData?.email) {
+        loadCartItemCount();
+      }
+    }, [userEmail, originalUserData, fetchUserDataWithEmail, userData?.email, loadCartItemCount])
   );
 
   const handleLogout = () => {
@@ -244,7 +275,7 @@ export default function UserProfileScreen() {
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
-        <BottomNavigation activeTab="profile" userData={userData} />
+        <BottomNavigation activeTab="profile" userData={userData} cartItemCount={cartItemCount} />
       </View>
     );
   }
@@ -346,7 +377,7 @@ export default function UserProfileScreen() {
           </View>
         </View>
       </ScrollView>
-      <BottomNavigation activeTab="profile" userData={userData} />
+      <BottomNavigation activeTab="profile" userData={userData} cartItemCount={cartItemCount} />
     </View>
   );
 }
