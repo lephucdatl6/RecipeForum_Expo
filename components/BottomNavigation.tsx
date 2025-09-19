@@ -1,13 +1,14 @@
 import { router } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCart } from '../contexts/CartContext';
 
 interface BottomNavigationProps {
   activeTab: 'profile' | 'forum' | 'recipes' | 'notifications' | 'cart';
   userData?: any;
-  cartItemCount?: number;
 }
 
-export default function BottomNavigation({ activeTab, userData, cartItemCount = 0 }: BottomNavigationProps) {
+export default function BottomNavigation({ activeTab, userData }: BottomNavigationProps) {
+  const { cartItemCount } = useCart();
   const navigateToTab = (tab: string) => {
     // Don't navigate if the user clicks on the currently active tab
     if (tab === activeTab) {

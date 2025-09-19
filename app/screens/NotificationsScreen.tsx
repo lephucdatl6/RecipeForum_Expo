@@ -2,7 +2,7 @@ import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
-import { API_BASE_URL } from '../../config/apiConfig';
+import { useCart } from '../../contexts/CartContext';
 
 interface UserData {
   user_id: number;
@@ -17,7 +17,7 @@ interface UserData {
 export default function NotificationsScreen() {
   const params = useLocalSearchParams();
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [cartItemCount, setCartItemCount] = useState<number>(0);
+  const { loadCartItemCount } = useCart();
 
   useEffect(() => {
     if (params.userData) {
@@ -33,36 +33,16 @@ export default function NotificationsScreen() {
     }
   }, [params.userData]);
 
-  // Function to load cart item count
-  const loadCartItemCount = useCallback(async () => {
-    if (!userData?.email) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}`);
-      const data = await response.json();
-      
-      if (data.success && data.cart && data.cart.items) {
-        const itemCount = data.cart.items.length;
-        setCartItemCount(itemCount);
-      } else {
-        setCartItemCount(0);
-      }
-    } catch (error) {
-      console.error('Error loading cart count:', error);
-      setCartItemCount(0);
-    }
-  }, [userData?.email]);
-
   useEffect(() => {
     if (userData?.email) {
-      loadCartItemCount();
+      loadCartItemCount(userData.email);
     }
   }, [userData?.email, loadCartItemCount]);
 
   useFocusEffect(
     useCallback(() => {
       if (userData?.email) {
-        loadCartItemCount();
+        loadCartItemCount(userData.email);
       }
     }, [userData?.email, loadCartItemCount])
   );
@@ -81,7 +61,7 @@ export default function NotificationsScreen() {
           </Text>
         </View>
       </ScrollView>
-      <BottomNavigation activeTab="notifications" userData={userData} cartItemCount={cartItemCount} />
+      <BottomNavigation activeTab="notifications" userData={userData} />
     </View>
   );
 }

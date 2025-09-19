@@ -3,6 +3,7 @@ import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
+import { useCart } from '../../contexts/CartContext';
 
 interface Ingredient {
   ingredientId: number;
@@ -87,28 +88,7 @@ export default function PostDetailScreen() {
 
   // Cart-related states
   const [isAddingToCart, setIsAddingToCart] = useState<{[key: number]: boolean}>({});
-  const [cartItemCount, setCartItemCount] = useState<number>(0);
-
-  // Function to load cart item count
-  const loadCartItemCount = useCallback(async () => {
-    if (!userData?.email) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}`);
-      const data = await response.json();
-      
-      if (data.success && data.cart && data.cart.items) {
-        // Count the number of distinct items (rows) in cart, not the total quantity
-        const itemCount = data.cart.items.length;
-        setCartItemCount(itemCount);
-      } else {
-        setCartItemCount(0);
-      }
-    } catch (error) {
-      console.error('Error loading cart count:', error);
-      setCartItemCount(0);
-    }
-  }, [userData?.email]);
+  const { cartItemCount, loadCartItemCount } = useCart();
 
   // Function to handle navigation to cart screen
   const handleCartNavigation = () => {
@@ -180,7 +160,7 @@ export default function PostDetailScreen() {
   // Load cart item count when user data is available
   useEffect(() => {
     if (userData?.email) {
-      loadCartItemCount();
+      loadCartItemCount(userData.email);
     }
   }, [userData?.email, loadCartItemCount]);
 
@@ -276,7 +256,9 @@ export default function PostDetailScreen() {
           }
           loadComments();
           loadCommentStats();
-          loadCartItemCount(); // Refresh cart count when screen comes into focus
+          if (userData?.email) {
+            loadCartItemCount(userData.email); // Refresh cart count when screen comes into focus
+          }
         }, 200);
         
         return () => clearTimeout(timeoutId);
@@ -401,7 +383,7 @@ export default function PostDetailScreen() {
             // Load cart count after user data is set
             if (parsedData?.email) {
               setTimeout(() => {
-                loadCartItemCount();
+                loadCartItemCount(parsedData.email);
               }, 100);
             }
           }
@@ -1030,9 +1012,11 @@ export default function PostDetailScreen() {
         const quantityText = shoppingQuantity === 1 ? '1' : `${shoppingQuantity}`;
         Alert.alert('Success', `${quantityText} ${ingredient.name} added to cart!`);
         // Refresh cart count after successful addition
-        setTimeout(() => {
-          loadCartItemCount();
-        }, 500); // Small delay to ensure backend has processed the addition
+        if (userData?.email) {
+          setTimeout(() => {
+            loadCartItemCount(userData.email);
+          }, 500); // Small delay to ensure backend has processed the addition
+        }
       } else {
         Alert.alert('Error', data.error || 'Failed to add item to cart');
       }

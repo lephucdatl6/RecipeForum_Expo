@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
+import { useCart } from '../../contexts/CartContext';
 
 interface UserData {
   user_id: number;
@@ -24,7 +25,7 @@ export default function UserProfileScreen() {
   const [originalUserData, setOriginalUserData] = useState<UserData | null>(null);
   const [lastProcessedUpdatedEmail, setLastProcessedUpdatedEmail] = useState<string>('');
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [cartItemCount, setCartItemCount] = useState<number>(0);
+  const { loadCartItemCount } = useCart();
 
   // Initialize user data from params on first load
   useEffect(() => {
@@ -51,26 +52,6 @@ export default function UserProfileScreen() {
 
     initializeUserData();
   }, [params.userData]);
-
-  // Function to load cart item count
-  const loadCartItemCount = useCallback(async () => {
-    if (!userData?.email) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}`);
-      const data = await response.json();
-      
-      if (data.success && data.cart && data.cart.items) {
-        const itemCount = data.cart.items.length;
-        setCartItemCount(itemCount);
-      } else {
-        setCartItemCount(0);
-      }
-    } catch (error) {
-      console.error('Error loading cart count:', error);
-      setCartItemCount(0);
-    }
-  }, [userData?.email]);
 
   // Helper function to fetch user data with a specific email
   const fetchUserDataWithEmail = useCallback(async (emailToFetch: string, skipErrorLog = false) => {
@@ -141,7 +122,7 @@ export default function UserProfileScreen() {
   // Load cart count when user data is available
   useEffect(() => {
     if (userData?.email) {
-      loadCartItemCount();
+      loadCartItemCount(userData.email);
     }
   }, [userData?.email, loadCartItemCount]);
 
@@ -151,7 +132,7 @@ export default function UserProfileScreen() {
         fetchUserDataWithEmail(userEmail, true); 
       }
       if (userData?.email) {
-        loadCartItemCount();
+        loadCartItemCount(userData.email);
       }
     }, [userEmail, originalUserData, fetchUserDataWithEmail, userData?.email, loadCartItemCount])
   );
@@ -275,7 +256,7 @@ export default function UserProfileScreen() {
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
-        <BottomNavigation activeTab="profile" userData={userData} cartItemCount={cartItemCount} />
+        <BottomNavigation activeTab="profile" userData={userData} />
       </View>
     );
   }
@@ -377,7 +358,7 @@ export default function UserProfileScreen() {
           </View>
         </View>
       </ScrollView>
-      <BottomNavigation activeTab="profile" userData={userData} cartItemCount={cartItemCount} />
+      <BottomNavigation activeTab="profile" userData={userData} />
     </View>
   );
 }

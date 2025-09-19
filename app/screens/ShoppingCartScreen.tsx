@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
+import { useCart } from '../../contexts/CartContext';
 
 interface CartItem {
   id: number;
@@ -42,6 +43,7 @@ export default function ShoppingCartScreen() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingItems, setUpdatingItems] = useState<{[key: number]: boolean}>({});
+  const { loadCartItemCount } = useCart();
 
   // Initialize user data from params on first load
   useEffect(() => {
@@ -156,6 +158,11 @@ export default function ShoppingCartScreen() {
             totalPrice
           };
         });
+        
+        // Refresh cart count in navigation
+        if (userData?.email) {
+          loadCartItemCount(userData.email);
+        }
       } else {
         Alert.alert('Error', data.error || 'Failed to update item quantity');
       }
@@ -179,6 +186,7 @@ export default function ShoppingCartScreen() {
 
       if (data.success && userData) {
         loadCart(userData.email);
+        loadCartItemCount(userData.email);
       } else {
         Alert.alert('Error', data.error || 'Failed to remove item');
       }
@@ -211,6 +219,7 @@ export default function ShoppingCartScreen() {
 
               if (data.success) {
                 loadCart(userData.email);
+                loadCartItemCount(userData.email);
               } else {
                 Alert.alert('Error', data.error || 'Failed to clear cart');
               }
@@ -348,7 +357,6 @@ export default function ShoppingCartScreen() {
       <BottomNavigation 
         activeTab="cart" 
         userData={userData} 
-        cartItemCount={cart?.items?.length || 0} 
       />
     </View>
     </>

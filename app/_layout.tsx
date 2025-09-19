@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { CartProvider } from '../contexts/CartContext';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -17,26 +18,28 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack 
-        screenOptions={{
-          animation: 'none',
-        }}
-      >
-        <Stack.Screen name="screens/LoginScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="screens/SignupScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="screens/UserProfileScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="screens/RecipesForumScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="screens/PostDetailScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="screens/CreatePostScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="screens/EditPostScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="screens/RecipesListScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="screens/NotificationsScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="screens/ViewProfileScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="screens/EditProfileScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <CartProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack 
+          screenOptions={{
+            animation: 'none',
+          }}
+        >
+          <Stack.Screen name="screens/LoginScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/SignupScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/UserProfileScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/RecipesForumScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/PostDetailScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/CreatePostScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/EditPostScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/RecipesListScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/NotificationsScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/ViewProfileScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/EditProfileScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </CartProvider>
   );
 }
