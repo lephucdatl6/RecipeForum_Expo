@@ -850,12 +850,20 @@ export default function PostDetailScreen() {
       
       if (!data.success) {
         console.warn('Failed to get ingredient package info, using fallback logic');
-        return getShoppingQuantityFallback(amount, unit);
+        return getShoppingQuantityFallback(amount, unit, null, null);
       }
       
       const ingredient = data.ingredient;
       const packageSize = parseFloat(ingredient.package_size) || 1;
       const packageUnit = ingredient.package_unit || 'piece';
+      
+      // Special handling for ingredients sold by pieces (pcs)
+      if (packageUnit.toLowerCase().includes('pcs') || packageUnit.toLowerCase().includes('piece')) {
+        // Calculate how many packages needed based on package size
+        // For example if recipe needs 10 eggs and package has 12 eggs, buy 1 package
+        const packagesNeeded = Math.ceil(amount / packageSize);
+        return Math.max(1, packagesNeeded);
+      }
       
       // Convert units to same base for comparison
       const recipeAmountInBaseUnit = convertToBaseUnit(amount, unit);
@@ -870,11 +878,11 @@ export default function PostDetailScreen() {
       
       // Fallback for non-convertible or incompatible units
       console.warn(`Unit mismatch: Recipe uses "${unit}" but package is sold in "${packageUnit}". Using fallback logic.`);
-      return getShoppingQuantityFallback(amount, unit);
+      return getShoppingQuantityFallback(amount, unit, ingredient.name, packageUnit);
       
     } catch (error) {
       console.error('Error getting package info:', error);
-      return getShoppingQuantityFallback(amount, unit);
+      return getShoppingQuantityFallback(amount, unit, null, null);
     }
   };
 
@@ -943,10 +951,18 @@ export default function PostDetailScreen() {
   };
 
   // Fallback logic when package info is not available or units are incompatible
-  const getShoppingQuantityFallback = (amount: number, unit: string): number => {
+  const getShoppingQuantityFallback = (amount: number, unit: string, ingredientName: string | null = null, packageUnit: string | null = null): number => {
     const unitLower = unit.toLowerCase();
+    const ingredientLower = ingredientName?.toLowerCase() || '';
+    const packageUnitLower = packageUnit?.toLowerCase() || '';
     
-    // Countable units - use recipe amount (makes sense for eggs, pieces, etc.)
+    // Check if package is sold by pieces first
+    if (packageUnitLower.includes('pcs') || packageUnitLower.includes('piece')) {
+      const defaultPackageSize = 6;
+      return Math.max(1, Math.ceil(amount / defaultPackageSize));
+    }
+    
+    // Countable units - use recipe amount (makes sense for pieces, etc.)
     if (unitLower.includes('piece') || unitLower.includes('pcs') || 
         unitLower.includes('item') || unitLower.includes('egg') ||
         unitLower.includes('whole') || unitLower.includes('bottle') ||
@@ -956,7 +972,7 @@ export default function PostDetailScreen() {
     }
     
     // Weight/volume units - assume 1 package will cover recipe needs
-    // This handles cases like "1 cup fish" or "500g eggs"
+    // This handles cases like "1 cup fish" or "500g flour"
     if (unitLower.includes('gram') || unitLower.includes('kg') ||
         unitLower.includes('cup') || unitLower.includes('tablespoon') ||
         unitLower.includes('tbsp') || unitLower.includes('teaspoon') ||
@@ -966,8 +982,8 @@ export default function PostDetailScreen() {
         unitLower.includes('pound') || unitLower.includes('lb')) {
       
       // For very large amounts, might need multiple packages
-      if (amount > 10) {
-        return Math.ceil(amount / 5); // Rough estimate: divide by 5
+      if (amount > 50) { // Increased threshold to be more reasonable
+        return Math.ceil(amount / 20); // More conservative estimate
       }
       return 1; // Default: buy 1 package/container
     }
@@ -994,6 +1010,20 @@ export default function PostDetailScreen() {
     // Convert recipe amount to smart shopping quantity
     const shoppingQuantity = await getShoppingQuantity(ingredient.amount, ingredient.unit, ingredient.ingredientId);
 
+    // Get ingredient package size for the success message
+    let packageInfo = '';
+    try {
+      const ingredientResponse = await fetch(`${API_BASE_URL}/api/ingredients/${ingredient.ingredientId}`);
+      const ingredientData = await ingredientResponse.json();
+      if (ingredientData.success && ingredientData.ingredient?.package_size && ingredientData.ingredient?.package_unit) {
+        const packageSize = parseFloat(ingredientData.ingredient.package_size);
+        const formattedSize = packageSize % 1 === 0 ? Math.floor(packageSize).toString() : packageSize.toString();
+        packageInfo = `${formattedSize} ${ingredientData.ingredient.package_unit}`;
+      }
+    } catch (error) {
+      console.log('Could not fetch ingredient package info:', error);
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}/items`, {
         method: 'POST',
@@ -1010,7 +1040,10 @@ export default function PostDetailScreen() {
 
       if (data.success) {
         const quantityText = shoppingQuantity === 1 ? '1' : `${shoppingQuantity}`;
-        Alert.alert('Success', `${quantityText} ${ingredient.name} added to cart!`);
+        const successMessage = packageInfo 
+          ? `${quantityText} ${ingredient.name} (${packageInfo}) added to cart!`
+          : `${quantityText} ${ingredient.name} added to cart!`;
+        Alert.alert('Success', successMessage);
         // Refresh cart count after successful addition
         if (userData?.email) {
           setTimeout(() => {
