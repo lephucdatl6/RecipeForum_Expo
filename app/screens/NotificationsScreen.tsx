@@ -5,7 +5,7 @@ import BottomNavigation from '../../components/BottomNavigation';
 import { useCart } from '../../contexts/CartContext';
 
 interface UserData {
-  user_id: number;
+  user_id: string;
   username: string;
   email: string;
   dateOfBirth: string;
@@ -34,17 +34,17 @@ export default function NotificationsScreen() {
   }, [params.userData]);
 
   useEffect(() => {
-    if (userData?.email) {
-      loadCartItemCount(userData.email);
+    if (userData?.user_id) {
+      loadCartItemCount(userData.user_id);
     }
-  }, [userData?.email, loadCartItemCount]);
+  }, [userData?.user_id, loadCartItemCount]);
 
   useFocusEffect(
     useCallback(() => {
-      if (userData?.email) {
-        loadCartItemCount(userData.email);
+      if (userData?.user_id) {
+        loadCartItemCount(userData.user_id);
       }
-    }, [userData?.email, loadCartItemCount])
+    }, [userData?.user_id, loadCartItemCount])
   );
 
   return (

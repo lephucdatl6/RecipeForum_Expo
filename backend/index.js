@@ -506,18 +506,31 @@ async function ensureIngredientsTable() {
   }
 }
 
-// Add shopping cart tables if they don't exist
+// Add shopping cart tables
 async function ensureShoppingCartTables() {
   try {
+    const userIdTypeQuery = await pool.query(`
+      SELECT data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'user_id'
+    `);
+    
+    let userIdType = 'INTEGER';
+    if (userIdTypeQuery.rows.length > 0) {
+      const actualType = userIdTypeQuery.rows[0].data_type;
+      if (actualType === 'uuid' || actualType === 'text') {
+        userIdType = 'TEXT';
+      }
+    }
+
     // Create shopping_carts table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS shopping_carts (
         id SERIAL PRIMARY KEY,
-        user_email VARCHAR(255) NOT NULL,
+        user_id ${userIdType} NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(user_email),
-        FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE
+        UNIQUE(user_id)
       )
     `);
 
@@ -533,7 +546,8 @@ async function ensureShoppingCartTables() {
         FOREIGN KEY (cart_id) REFERENCES shopping_carts(id) ON DELETE CASCADE,
         FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE CASCADE
       )
-    `);    
+    `);
+
   } catch (err) {
     console.error('Error creating shopping cart tables:', err.message);
   }
@@ -542,11 +556,25 @@ async function ensureShoppingCartTables() {
 // Add orders table
 async function ensureOrdersTables() {
   try {
-    // Create orders table with correct user_id type (INTEGER to match users table)
+    const userIdTypeQuery = await pool.query(`
+      SELECT data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'user_id'
+    `);
+    
+    let userIdType = 'INTEGER';
+    if (userIdTypeQuery.rows.length > 0) {
+      const actualType = userIdTypeQuery.rows[0].data_type;
+      if (actualType.includes('character') || actualType.includes('varchar') || actualType.includes('uuid')) {
+        userIdType = 'TEXT';
+      }
+    }
+
+    // Create orders table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS orders (
         order_id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL,
+        user_id ${userIdType} NOT NULL,
         customer_name VARCHAR(255) NOT NULL,
         delivery_address TEXT NOT NULL,
         payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('Cash', 'Credit')),
@@ -555,8 +583,7 @@ async function ensureOrdersTables() {
         points_used INTEGER DEFAULT 0,
         discount_amount DECIMAL(10,2) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -570,25 +597,12 @@ async function ensureOrdersTables() {
         ingredient_price DECIMAL(10,2) NOT NULL,
         package_size DECIMAL(10,2) NOT NULL,
         package_unit VARCHAR(50) NOT NULL,
-        quantity INTEGER NOT NULL,
+        quantity DECIMAL(10,2) NOT NULL,
         item_total DECIMAL(10,2) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE
       )
     `);
-
-    // Remove cart_data column if it exists (from old structure)
-    const columnExists = await pool.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'orders' AND column_name = 'cart_data'
-    `);
-
-    if (columnExists.rows.length > 0) {
-      console.log('Removing old cart_data column from orders table...');
-      await pool.query(`
-        ALTER TABLE orders DROP COLUMN IF EXISTS cart_data
-      `);
-    }
 
   } catch (err) {
     console.error('Error creating orders tables:', err.message);
@@ -943,21 +957,21 @@ app.get('/api/ingredients/:id', async (req, res) => {
 // ==================== SHOPPING CART ENDPOINTS (PostgreSQL) ====================
 
 // Get user's shopping cart
-app.get('/api/cart/:userEmail', async (req, res) => {
+app.get('/api/cart/:userId', async (req, res) => {
   try {
-    const { userEmail } = req.params;
+    const { userId } = req.params;
 
     // Get or create cart for user
     let cartResult = await pool.query(
-      'SELECT * FROM shopping_carts WHERE user_email = $1',
-      [userEmail]
+      'SELECT * FROM shopping_carts WHERE user_id = $1',
+      [userId]
     );
 
     if (cartResult.rows.length === 0) {
       // Create new cart
       cartResult = await pool.query(
-        'INSERT INTO shopping_carts (user_email) VALUES ($1) RETURNING *',
-        [userEmail]
+        'INSERT INTO shopping_carts (user_id) VALUES ($1) RETURNING *',
+        [userId]
       );
     }
 
@@ -985,7 +999,7 @@ app.get('/api/cart/:userEmail', async (req, res) => {
       success: true,
       cart: {
         id: cart.id,
-        userEmail: cart.user_email,
+        userId: cart.user_id,
         createdAt: cart.created_at,
         updatedAt: cart.updated_at,
         items: itemsResult.rows,
@@ -1005,9 +1019,9 @@ app.get('/api/cart/:userEmail', async (req, res) => {
 });
 
 // Add ingredient to cart
-app.post('/api/cart/:userEmail/items', async (req, res) => {
+app.post('/api/cart/:userId/items', async (req, res) => {
   try {
-    const { userEmail } = req.params;
+    const { userId } = req.params;
     const { ingredientId, quantity } = req.body;
 
     if (!ingredientId || !quantity) {
@@ -1041,14 +1055,14 @@ app.post('/api/cart/:userEmail/items', async (req, res) => {
 
     // Get or create cart
     let cartResult = await pool.query(
-      'SELECT * FROM shopping_carts WHERE user_email = $1',
-      [userEmail]
+      'SELECT * FROM shopping_carts WHERE user_id = $1',
+      [userId]
     );
 
     if (cartResult.rows.length === 0) {
       cartResult = await pool.query(
-        'INSERT INTO shopping_carts (user_email) VALUES ($1) RETURNING *',
-        [userEmail]
+        'INSERT INTO shopping_carts (user_id) VALUES ($1) RETURNING *',
+        [userId]
       );
     }
 
@@ -1195,14 +1209,14 @@ app.delete('/api/cart/items/:itemId', async (req, res) => {
 });
 
 // Clear entire cart
-app.delete('/api/cart/:userEmail', async (req, res) => {
+app.delete('/api/cart/:userId', async (req, res) => {
   try {
-    const { userEmail } = req.params;
+    const { userId } = req.params;
 
     // Get cart
     const cartResult = await pool.query(
-      'SELECT * FROM shopping_carts WHERE user_email = $1',
-      [userEmail]
+      'SELECT * FROM shopping_carts WHERE user_id = $1',
+      [userId]
     );
 
     if (cartResult.rows.length === 0) {
@@ -2089,6 +2103,589 @@ app.get('/api/recipes/:id/comments/stats', async (req, res) => {
   }
 });
 
+// ==================== ORDERS ENDPOINTS (PostgreSQL) ====================
+
+// Create a new order
+app.post('/api/orders', async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    const { 
+      userEmail,
+      customer_name, 
+      delivery_address, 
+      payment_method, 
+      total_amount, 
+      points_used = 0, 
+      discount_amount = 0,
+      cart_items
+    } = req.body;
+
+    console.log('Order creation request received for user email:', userEmail);
+
+    // Validate required fields
+    if (!userEmail || !customer_name || !delivery_address || !payment_method || !total_amount) {
+      throw new Error('Missing required order information');
+    }
+
+    // Get user information and validate user exists
+    const userResult = await client.query('SELECT user_id, email, points FROM users WHERE email = $1', [userEmail]);
+    
+    if (userResult.rows.length === 0) {
+      throw new Error('User not found');
+    }
+    
+    const user = userResult.rows[0];
+    const actualUserId = user.user_id;
+    const currentPoints = user.points;
+
+    console.log('Found user:', actualUserId, 'with', currentPoints, 'points');
+
+    // Validate user has enough points if discount is applied
+    if (points_used > 0 && currentPoints < points_used) {
+      throw new Error(`Insufficient points. User has ${currentPoints} points, but trying to use ${points_used} points`);
+    }
+
+    // Get cart items from database
+    const cartItemsQuery = `
+      SELECT 
+        ci.ingredient_id,
+        ci.quantity,
+        i.name as ingredient_name,
+        i.price as ingredient_price,
+        i.package_size,
+        i.package_unit
+      FROM cart_items ci
+      JOIN shopping_carts sc ON ci.cart_id = sc.id
+      JOIN ingredients i ON ci.ingredient_id = i.id
+      WHERE sc.user_email = $1
+    `;
+    
+    const cartResult = await client.query(cartItemsQuery, [userEmail]);
+    const cartData = cartResult.rows;
+
+    if (cartData.length === 0) {
+      throw new Error('No items found in cart');
+    }
+
+    console.log('Found', cartData.length, 'items in cart');
+
+    // Create the main order
+    const orderResult = await client.query(`
+      INSERT INTO orders (user_id, customer_name, delivery_address, payment_method, total_amount, points_used, discount_amount, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING order_id, created_at
+    `, [actualUserId, customer_name, delivery_address, payment_method, total_amount, points_used, discount_amount, 'Pending']);
+
+    const orderId = orderResult.rows[0].order_id;
+    console.log('Created order:', orderId);
+
+    // Insert each cart item as an order item
+    for (const item of cartData) {
+      const itemTotal = parseFloat(item.ingredient_price) * parseFloat(item.quantity);
+      
+      await client.query(`
+        INSERT INTO order_items (
+          order_id, ingredient_id, ingredient_name, ingredient_price, 
+          package_size, package_unit, quantity, item_total
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [
+        orderId,
+        item.ingredient_id,
+        item.ingredient_name,
+        item.ingredient_price,
+        item.package_size,
+        item.package_unit,
+        parseFloat(item.quantity),
+        itemTotal
+      ]);
+    }
+
+    console.log('Inserted', cartData.length, 'order items');
+
+    // Update user points if points were used
+    if (points_used > 0) {
+      await client.query(`
+        UPDATE users SET points = points - $1 WHERE user_id = $2
+      `, [points_used, actualUserId]);
+      console.log('Deducted', points_used, 'points from user');
+    }
+
+    // Clear the user cart after successful order
+    await client.query(`
+      DELETE FROM cart_items 
+      WHERE cart_id IN (
+        SELECT id FROM shopping_carts WHERE user_email = $1
+      )
+    `, [userEmail]);
+
+    console.log('Cleared user cart');
+
+    // Commit the transaction
+    await client.query('COMMIT');
+
+    console.log('Order created successfully:', orderId);
+
+    res.json({
+      success: true,
+      message: 'Order created successfully',
+      order_id: orderId,
+      created_at: orderResult.rows[0].created_at,
+      points_remaining: currentPoints - points_used
+    });
+    
+  } catch (error) {
+    // Rollback the transaction in case of error
+    await client.query('ROLLBACK');
+    console.error('Error creating order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create order',
+      details: error.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// Get user orders
+app.get('/api/orders/user/:userId', async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    // Get orders with their items using JOIN
+    const ordersResult = await pool.query(`
+      SELECT 
+        o.order_id,
+        o.user_id,
+        o.customer_name,
+        o.delivery_address,
+        o.payment_method,
+        o.status,
+        o.total_amount,
+        o.points_used,
+        o.discount_amount,
+        o.created_at,
+        o.updated_at,
+        oi.order_item_id,
+        oi.ingredient_id,
+        oi.ingredient_name,
+        oi.ingredient_price,
+        oi.package_size,
+        oi.package_unit,
+        oi.quantity,
+        oi.item_total
+      FROM orders o
+      LEFT JOIN order_items oi ON o.order_id = oi.order_id
+      WHERE o.user_id = $1
+      ORDER BY o.created_at DESC, oi.order_item_id ASC
+    `, [userId]);
+
+    // Group items by order
+    const ordersMap = new Map();
+    
+    ordersResult.rows.forEach(row => {
+      if (!ordersMap.has(row.order_id)) {
+        ordersMap.set(row.order_id, {
+          order_id: row.order_id,
+          user_id: row.user_id,
+          customer_name: row.customer_name,
+          delivery_address: row.delivery_address,
+          payment_method: row.payment_method,
+          status: row.status,
+          total_amount: row.total_amount,
+          points_used: row.points_used,
+          discount_amount: row.discount_amount,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          items: []
+        });
+      }
+      
+      // Add item if it exists
+      if (row.order_item_id) {
+        ordersMap.get(row.order_id).items.push({
+          order_item_id: row.order_item_id,
+          ingredient_id: row.ingredient_id,
+          ingredient_name: row.ingredient_name,
+          ingredient_price: row.ingredient_price,
+          package_size: row.package_size,
+          package_unit: row.package_unit,
+          quantity: row.quantity,
+          item_total: row.item_total
+        });
+      }
+    });
+
+    const orders = Array.from(ordersMap.values());
+
+    res.json({
+      success: true,
+      orders: orders
+    });
+  } catch (error) {
+    console.error('Error fetching user orders:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch orders',
+      details: error.message
+    });
+  }
+});
+
+// Update order status
+app.put('/api/orders/:orderId/status', async (req, res) => {
+  const { orderId } = req.params;
+  const { status } = req.body;
+  
+  const validStatuses = ['Pending', 'Preparing', 'Shipped', 'Arrived', 'Cancelled'];
+  
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid status',
+      validStatuses
+    });
+  }
+  
+  try {
+    const result = await pool.query(`
+      UPDATE orders 
+      SET status = $1, updated_at = CURRENT_TIMESTAMP 
+      WHERE order_id = $2
+      RETURNING *
+    `, [status, orderId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Order status updated successfully',
+      order: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update order status',
+      details: error.message
+    });
+  }
+});
+
+// Clear cart endpoint
+app.delete('/api/cart/clear', async (req, res) => {
+  const { userEmail } = req.body;
+  
+  try {
+    // Find the cart
+    const cartResult = await pool.query(
+      'SELECT id FROM shopping_carts WHERE user_email = $1',
+      [userEmail]
+    );
+
+    if (cartResult.rows.length > 0) {
+      const cartId = cartResult.rows[0].id;
+      
+      // Delete all cart items
+      await pool.query('DELETE FROM cart_items WHERE cart_id = $1', [cartId]);
+      
+      // Delete the cart
+      await pool.query('DELETE FROM shopping_carts WHERE id = $1', [cartId]);
+    }
+
+    res.json({
+      success: true,
+      message: 'Cart cleared successfully'
+    });
+  } catch (error) {
+    console.error('Error clearing cart:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear cart',
+      details: error.message
+    });
+  }
+});
+
+// ==================== ADMIN ORDER ENDPOINTS ====================
+
+// Get all orders for admin (with pagination)
+app.get('/api/admin/orders', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status, search } = req.query;
+    const offset = (page - 1) * limit;
+
+    let whereClause = '';
+    let queryParams = [];
+    let paramIndex = 1;
+
+    // Filter by status if provided
+    if (status && status !== 'all') {
+      whereClause += `WHERE o.status = $${paramIndex}`;
+      queryParams.push(status);
+      paramIndex++;
+    }
+
+    // Search by customer name or order ID
+    if (search) {
+      const searchCondition = `(o.customer_name ILIKE $${paramIndex} OR o.order_id::text LIKE $${paramIndex})`;
+      if (whereClause) {
+        whereClause += ` AND ${searchCondition}`;
+      } else {
+        whereClause += `WHERE ${searchCondition}`;
+      }
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Get orders with user information
+    const ordersQuery = `
+      SELECT 
+        o.order_id,
+        o.user_id,
+        o.customer_name,
+        o.delivery_address,
+        o.payment_method,
+        o.status,
+        o.total_amount,
+        o.points_used,
+        o.discount_amount,
+        o.created_at,
+        o.updated_at,
+        u.username,
+        u.email as user_email,
+        COUNT(oi.order_item_id) as item_count
+      FROM orders o
+      JOIN users u ON o.user_id = u.user_id
+      LEFT JOIN order_items oi ON o.order_id = oi.order_id
+      ${whereClause}
+      GROUP BY o.order_id, u.username, u.email
+      ORDER BY o.created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    queryParams.push(limit, offset);
+    const ordersResult = await pool.query(ordersQuery, queryParams);
+
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(DISTINCT o.order_id) as total
+      FROM orders o
+      JOIN users u ON o.user_id = u.user_id
+      ${whereClause}
+    `;
+    const countParams = queryParams.slice(0, -2); // Remove limit and offset
+    const countResult = await pool.query(countQuery, countParams);
+    const totalOrders = parseInt(countResult.rows[0].total);
+
+    res.json({
+      success: true,
+      orders: ordersResult.rows,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalOrders / limit),
+        totalOrders,
+        hasNextPage: offset + ordersResult.rows.length < totalOrders,
+        hasPreviousPage: page > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching admin orders:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch orders',
+      details: error.message
+    });
+  }
+});
+
+// Get single order details for admin
+app.get('/api/admin/orders/:orderId', async (req, res) => {
+  const { orderId } = req.params;
+  
+  try {
+    // Get order with user info and all items
+    const orderQuery = `
+      SELECT 
+        o.order_id,
+        o.user_id,
+        o.customer_name,
+        o.delivery_address,
+        o.payment_method,
+        o.status,
+        o.total_amount,
+        o.points_used,
+        o.discount_amount,
+        o.created_at,
+        o.updated_at,
+        u.username,
+        u.email as user_email,
+        u.phone as user_phone,
+        oi.order_item_id,
+        oi.ingredient_id,
+        oi.ingredient_name,
+        oi.ingredient_price,
+        oi.package_size,
+        oi.package_unit,
+        oi.quantity,
+        oi.item_total
+      FROM orders o
+      JOIN users u ON o.user_id = u.user_id
+      LEFT JOIN order_items oi ON o.order_id = oi.order_id
+      WHERE o.order_id = $1
+      ORDER BY oi.order_item_id ASC
+    `;
+
+    const result = await pool.query(orderQuery, [orderId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    // Structure the response
+    const firstRow = result.rows[0];
+    const order = {
+      order_id: firstRow.order_id,
+      user_id: firstRow.user_id,
+      customer_name: firstRow.customer_name,
+      delivery_address: firstRow.delivery_address,
+      payment_method: firstRow.payment_method,
+      status: firstRow.status,
+      total_amount: firstRow.total_amount,
+      points_used: firstRow.points_used,
+      discount_amount: firstRow.discount_amount,
+      created_at: firstRow.created_at,
+      updated_at: firstRow.updated_at,
+      user_info: {
+        username: firstRow.username,
+        email: firstRow.user_email,
+        phone: firstRow.user_phone
+      },
+      items: result.rows.filter(row => row.order_item_id).map(row => ({
+        order_item_id: row.order_item_id,
+        ingredient_id: row.ingredient_id,
+        ingredient_name: row.ingredient_name,
+        ingredient_price: row.ingredient_price,
+        package_size: row.package_size,
+        package_unit: row.package_unit,
+        quantity: row.quantity,
+        item_total: row.item_total
+      }))
+    };
+
+    res.json({
+      success: true,
+      order: order
+    });
+  } catch (error) {
+    console.error('Error fetching order details:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch order details',
+      details: error.message
+    });
+  }
+});
+
+// Get order statistics for admin dashboard
+app.get('/api/admin/orders/stats', async (req, res) => {
+  try {
+    // Get order counts by status
+    const statusStatsQuery = `
+      SELECT 
+        status,
+        COUNT(*) as count,
+        SUM(total_amount) as total_revenue
+      FROM orders
+      GROUP BY status
+      ORDER BY 
+        CASE status
+          WHEN 'Pending' THEN 1
+          WHEN 'Preparing' THEN 2
+          WHEN 'Shipped' THEN 3
+          WHEN 'Arrived' THEN 4
+          WHEN 'Cancelled' THEN 5
+        END
+    `;
+
+    const statusStats = await pool.query(statusStatsQuery);
+
+    // Get recent orders summary
+    const recentOrdersQuery = `
+      SELECT 
+        DATE(created_at) as order_date,
+        COUNT(*) as orders_count,
+        SUM(total_amount) as daily_revenue
+      FROM orders
+      WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY DATE(created_at)
+      ORDER BY order_date DESC
+    `;
+
+    const recentOrders = await pool.query(recentOrdersQuery);
+
+    // Get top selling ingredients
+    const topIngredientsQuery = `
+      SELECT 
+        oi.ingredient_name,
+        SUM(oi.quantity) as total_quantity,
+        COUNT(DISTINCT oi.order_id) as order_count,
+        SUM(oi.item_total) as total_revenue
+      FROM order_items oi
+      JOIN orders o ON oi.order_id = o.order_id
+      WHERE o.status != 'Cancelled'
+      GROUP BY oi.ingredient_name
+      ORDER BY total_quantity DESC
+      LIMIT 10
+    `;
+
+    const topIngredients = await pool.query(topIngredientsQuery);
+
+    // Get overall statistics
+    const overallStatsQuery = `
+      SELECT 
+        COUNT(*) as total_orders,
+        SUM(total_amount) as total_revenue,
+        AVG(total_amount) as average_order_value,
+        SUM(points_used) as total_points_redeemed
+      FROM orders
+      WHERE status != 'Cancelled'
+    `;
+
+    const overallStats = await pool.query(overallStatsQuery);
+
+    res.json({
+      success: true,
+      stats: {
+        statusBreakdown: statusStats.rows,
+        recentOrders: recentOrders.rows,
+        topIngredients: topIngredients.rows,
+        overall: overallStats.rows[0]
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching order statistics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch order statistics',
+      details: error.message
+    });
+  }
+});
+
+const PORT = process.env.PORT || 3001;
+
 // ==================== ADMIN ENDPOINTS ====================
 
 // Database Analytics - Demonstrates benefits of hybrid architecture
@@ -2414,302 +3011,16 @@ app.get('/api/admin/recipes/all', async (req, res) => {
   }
 });
 
-// ==================== ORDERS ENDPOINTS (PostgreSQL) ====================
-
-// Create a new order
-app.post('/api/orders', async (req, res) => {
-  const client = await pool.connect();
-  
-  try {
-    await client.query('BEGIN');
-    
-    const { 
-      user_id, 
-      customer_name, 
-      delivery_address, 
-      payment_method, 
-      total_amount, 
-      points_used = 0, 
-      discount_amount = 0,
-      cart_items 
-    } = req.body;
-
-    console.log('Order creation request received for user:', user_id);
-
-    const userResult = await client.query('SELECT user_id, email FROM users ORDER BY user_id LIMIT 1');
-    
-    if (userResult.rows.length === 0) {
-      throw new Error('No users found');
-    }
-    
-    const actualUserId = userResult.rows[0].user_id;
-    const userEmail = userResult.rows[0].email;
-
-    // Get cart items from database
-    const cartQuery = `
-      SELECT 
-        ci.ingredient_id,
-        ci.quantity,
-        i.name as ingredient_name,
-        i.price as ingredient_price,
-        i.package_size,
-        i.package_unit
-      FROM cart_items ci
-      JOIN shopping_carts sc ON ci.cart_id = sc.id
-      JOIN ingredients i ON ci.ingredient_id = i.id
-      WHERE sc.user_email = $1
-    `;
-    
-    const cartResult = await client.query(cartQuery, [userEmail]);
-    const cartData = cartResult.rows;
-
-    if (cartData.length === 0) {
-      throw new Error('No items found in cart');
-    }
-
-    // Create the main order
-    const orderResult = await client.query(`
-      INSERT INTO orders (user_id, customer_name, delivery_address, payment_method, total_amount, points_used, discount_amount)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING order_id, created_at
-    `, [actualUserId, customer_name, delivery_address, payment_method, total_amount, points_used, discount_amount]);
-
-    const orderId = orderResult.rows[0].order_id;
-
-    // Insert each cart item as an order item
-    for (const item of cartData) {
-      const itemTotal = item.ingredient_price * item.quantity;
-      
-      await client.query(`
-        INSERT INTO order_items (
-          order_id, ingredient_id, ingredient_name, ingredient_price, 
-          package_size, package_unit, quantity, item_total
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      `, [
-        orderId,
-        item.ingredient_id,
-        item.ingredient_name,
-        item.ingredient_price,
-        item.package_size,
-        item.package_unit,
-        item.quantity,
-        itemTotal
-      ]);
-    }
-
-    // Update user points if points were used
-    if (points_used > 0) {
-      await client.query(`
-        UPDATE users SET points = points - $1 WHERE user_id = $2
-      `, [points_used, actualUserId]);
-    }
-
-    // Clear the user's cart after successful order
-    await client.query(`
-      DELETE FROM cart_items 
-      WHERE cart_id IN (
-        SELECT id FROM shopping_carts WHERE user_email = $1
-      )
-    `, [userEmail]);
-
-    // Commit the transaction
-    await client.query('COMMIT');
-
-    console.log('Order created successfully:', orderId);
-
-    res.json({
-      success: true,
-      message: 'Order created successfully',
-      order_id: orderId,
-      created_at: orderResult.rows[0].created_at
-    });
-    
-  } catch (error) {
-    // Rollback the transaction in case of error
-    await client.query('ROLLBACK');
-    console.error('Error creating order:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create order',
-      details: error.message
-    });
-  } finally {
-    client.release();
-  }
-});
-
-// Get user orders
-app.get('/api/orders/user/:userId', async (req, res) => {
-  const { userId } = req.params;
-  
-  try {
-    // Get orders with their items using JOIN
-    const ordersResult = await pool.query(`
-      SELECT 
-        o.order_id,
-        o.user_id,
-        o.customer_name,
-        o.delivery_address,
-        o.payment_method,
-        o.status,
-        o.total_amount,
-        o.points_used,
-        o.discount_amount,
-        o.created_at,
-        o.updated_at,
-        oi.order_item_id,
-        oi.ingredient_id,
-        oi.ingredient_name,
-        oi.ingredient_price,
-        oi.package_size,
-        oi.package_unit,
-        oi.quantity,
-        oi.item_total
-      FROM orders o
-      LEFT JOIN order_items oi ON o.order_id = oi.order_id
-      WHERE o.user_id = $1
-      ORDER BY o.created_at DESC, oi.order_item_id ASC
-    `, [userId]);
-
-    // Group items by order
-    const ordersMap = new Map();
-    
-    ordersResult.rows.forEach(row => {
-      if (!ordersMap.has(row.order_id)) {
-        ordersMap.set(row.order_id, {
-          order_id: row.order_id,
-          user_id: row.user_id,
-          customer_name: row.customer_name,
-          delivery_address: row.delivery_address,
-          payment_method: row.payment_method,
-          status: row.status,
-          total_amount: row.total_amount,
-          points_used: row.points_used,
-          discount_amount: row.discount_amount,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-          items: []
-        });
-      }
-      
-      // Add item if it exists
-      if (row.order_item_id) {
-        ordersMap.get(row.order_id).items.push({
-          order_item_id: row.order_item_id,
-          ingredient_id: row.ingredient_id,
-          ingredient_name: row.ingredient_name,
-          ingredient_price: row.ingredient_price,
-          package_size: row.package_size,
-          package_unit: row.package_unit,
-          quantity: row.quantity,
-          item_total: row.item_total
-        });
-      }
-    });
-
-    const orders = Array.from(ordersMap.values());
-
-    res.json({
-      success: true,
-      orders: orders
-    });
-  } catch (error) {
-    console.error('Error fetching user orders:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch orders',
-      details: error.message
-    });
-  }
-});
-
-// Update order status
-app.put('/api/orders/:orderId/status', async (req, res) => {
-  const { orderId } = req.params;
-  const { status } = req.body;
-  
-  const validStatuses = ['Pending', 'Preparing', 'Shipped', 'Arrived', 'Cancelled'];
-  
-  if (!validStatuses.includes(status)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Invalid status',
-      validStatuses
-    });
-  }
-  
-  try {
-    const result = await pool.query(`
-      UPDATE orders 
-      SET status = $1, updated_at = CURRENT_TIMESTAMP 
-      WHERE order_id = $2
-      RETURNING *
-    `, [status, orderId]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Order not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Order status updated successfully',
-      order: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Error updating order status:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update order status',
-      details: error.message
-    });
-  }
-});
-
-// Clear cart endpoint
-app.delete('/api/cart/clear', async (req, res) => {
-  const { userEmail } = req.body;
-  
-  try {
-    // Find the cart
-    const cartResult = await pool.query(
-      'SELECT id FROM shopping_carts WHERE user_email = $1',
-      [userEmail]
-    );
-
-    if (cartResult.rows.length > 0) {
-      const cartId = cartResult.rows[0].id;
-      
-      // Delete all cart items
-      await pool.query('DELETE FROM cart_items WHERE cart_id = $1', [cartId]);
-      
-      // Delete the cart
-      await pool.query('DELETE FROM shopping_carts WHERE id = $1', [cartId]);
-    }
-
-    res.json({
-      success: true,
-      message: 'Cart cleared successfully'
-    });
-  } catch (error) {
-    console.error('Error clearing cart:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to clear cart',
-      details: error.message
-    });
-  }
-});
-
-const PORT = process.env.PORT || 3001;
-
 // ==================== STATIC ROUTES ====================
 
 // Serve ingredients manager HTML page
 app.get('/ingredients-manager', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'admin', 'ingredients-manager.html'));
+});
+
+// Serve orders manager HTML page
+app.get('/orders-manager', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'admin', 'orders-manager.html'));
 });
 
 // Auto-generate API configuration on server startup

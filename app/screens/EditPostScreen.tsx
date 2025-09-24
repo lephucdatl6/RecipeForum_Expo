@@ -6,7 +6,7 @@ import { API_BASE_URL } from '../../config/apiConfig';
 import { uploadImageAsync } from '../../utils/imageUploadUtils';
 
 interface UserData {
-  user_id: number;
+  user_id: string;
   username: string;
   email: string;
   dateOfBirth: string;

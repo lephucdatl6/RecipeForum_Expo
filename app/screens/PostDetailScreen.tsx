@@ -33,7 +33,7 @@ interface Recipe {
 }
 
 interface UserData {
-  user_id: number;
+  user_id: string;
   username: string;
   email: string;
   dateOfBirth: string;
@@ -159,10 +159,10 @@ export default function PostDetailScreen() {
 
   // Load cart item count when user data is available
   useEffect(() => {
-    if (userData?.email) {
-      loadCartItemCount(userData.email);
+    if (userData?.user_id) {
+      loadCartItemCount(userData.user_id);
     }
-  }, [userData?.email, loadCartItemCount]);
+  }, [userData?.user_id, loadCartItemCount]);
 
   // Handle updated email from EditProfileScreen
   useEffect(() => {
@@ -247,7 +247,7 @@ export default function PostDetailScreen() {
   // Refresh data when screen comes into focus (e.g., after editing)
   useFocusEffect(
     useCallback(() => {
-      if (userData?.email && recipe?.id && voteStatusLoaded) {
+      if (userData?.user_id && recipe?.id && voteStatusLoaded) {
         const timeoutId = setTimeout(() => {
           refreshRecipeData();
           if (userData?.email !== lastProcessedUpdatedEmail) {
@@ -255,14 +255,14 @@ export default function PostDetailScreen() {
           }
           loadComments();
           loadCommentStats();
-          if (userData?.email) {
-            loadCartItemCount(userData.email);
+          if (userData?.user_id) {
+            loadCartItemCount(userData.user_id);
           }
         }, 200);
         
         return () => clearTimeout(timeoutId);
       }
-    }, [refreshRecipeData, refreshUserData, userData?.email, lastProcessedUpdatedEmail, recipe?.id, voteStatusLoaded, loadCartItemCount])
+    }, [refreshRecipeData, refreshUserData, userData?.user_id, lastProcessedUpdatedEmail, recipe?.id, voteStatusLoaded, loadCartItemCount])
   );
 
   // Load author profile image
@@ -376,9 +376,9 @@ export default function PostDetailScreen() {
             setUserData(parsedData);
             setOriginalUserData(parsedData);
             // Load cart count after user data is set
-            if (parsedData?.email) {
+            if (parsedData?.user_id) {
               setTimeout(() => {
-                loadCartItemCount(parsedData.email);
+                loadCartItemCount(parsedData.user_id);
               }, 100);
             }
           }
@@ -1020,7 +1020,7 @@ export default function PostDetailScreen() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}/items`, {
+      const response = await fetch(`${API_BASE_URL}/api/cart/${userData.user_id}/items`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1040,9 +1040,9 @@ export default function PostDetailScreen() {
           : `${quantityText} ${ingredient.name} added to cart!`;
         Alert.alert('Success', successMessage);
         // Refresh cart count after successful addition
-        if (userData?.email) {
+        if (userData?.user_id) {
           setTimeout(() => {
-            loadCartItemCount(userData.email);
+            loadCartItemCount(userData.user_id);
           }, 500); // Small delay to ensure backend has processed the addition
         }
       } else {

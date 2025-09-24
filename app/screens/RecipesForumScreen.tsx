@@ -6,7 +6,7 @@ import { API_BASE_URL } from '../../config/apiConfig';
 import { useCart } from '../../contexts/CartContext';
 
 interface UserData {
-  user_id: number;
+  user_id: string;
   username: string;
   email: string;
   dateOfBirth: string;
@@ -113,10 +113,10 @@ export default function RecipesForumScreen() {
 
   // Load cart count when user data is available
   useEffect(() => {
-    if (userData?.email) {
-      loadCartItemCount(userData.email);
+    if (userData?.user_id) {
+      loadCartItemCount(userData.user_id);
     }
-  }, [userData?.email, loadCartItemCount]);
+  }, [userData?.user_id, loadCartItemCount]);
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
@@ -134,7 +134,7 @@ export default function RecipesForumScreen() {
         await loadRecipes();
         if (userData) {
           setTimeout(() => loadUserVotes(), 100);
-          setTimeout(() => loadCartItemCount(userData.email), 100);
+          setTimeout(() => loadCartItemCount(userData.user_id), 100);
         }
       };
       reloadData();

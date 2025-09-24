@@ -19,7 +19,7 @@ interface CartItem {
 
 interface Cart {
   id: number;
-  userEmail: string;
+  userId: string;
   createdAt: string;
   updatedAt: string;
   items: CartItem[];
@@ -28,7 +28,7 @@ interface Cart {
 }
 
 interface UserData {
-  user_id: number;
+  user_id: string;
   username: string;
   email: string;
   dateOfBirth: string;
@@ -52,7 +52,7 @@ export default function ShoppingCartScreen() {
         try {
           const user = JSON.parse(params.userData as string);
           setUserData(user);
-          loadCart(user.email);
+          loadCart(user.user_id);
           setIsLoading(false);
         } catch (error) {
           console.error('Error parsing user data:', error);
@@ -74,15 +74,15 @@ export default function ShoppingCartScreen() {
   useFocusEffect(
     useCallback(() => {
       if (userData) {
-        loadCart(userData.email);
+        loadCart(userData.user_id);
       }
     }, [userData])
   );
 
-  const loadCart = async (userEmail: string) => {
+  const loadCart = async (userId: string) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/cart/${userEmail}`);
+      const response = await fetch(`${API_BASE_URL}/api/cart/${userId}`);
       const data = await response.json();
 
       if (data.success) {
@@ -160,8 +160,8 @@ export default function ShoppingCartScreen() {
         });
         
         // Refresh cart count in navigation
-        if (userData?.email) {
-          loadCartItemCount(userData.email);
+        if (userData?.user_id) {
+          loadCartItemCount(userData.user_id);
         }
       } else {
         Alert.alert('Error', data.error || 'Failed to update item quantity');
@@ -185,8 +185,8 @@ export default function ShoppingCartScreen() {
       const data = await response.json();
 
       if (data.success && userData) {
-        loadCart(userData.email);
-        loadCartItemCount(userData.email);
+        loadCart(userData.user_id);
+        loadCartItemCount(userData.user_id);
       } else {
         Alert.alert('Error', data.error || 'Failed to remove item');
       }
@@ -211,15 +211,15 @@ export default function ShoppingCartScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await fetch(`${API_BASE_URL}/api/cart/${userData.email}`, {
+              const response = await fetch(`${API_BASE_URL}/api/cart/${userData.user_id}`, {
                 method: 'DELETE',
               });
 
               const data = await response.json();
 
               if (data.success) {
-                loadCart(userData.email);
-                loadCartItemCount(userData.email);
+                loadCart(userData.user_id);
+                loadCartItemCount(userData.user_id);
               } else {
                 Alert.alert('Error', data.error || 'Failed to clear cart');
               }

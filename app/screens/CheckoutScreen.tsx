@@ -165,7 +165,7 @@ export default function CheckoutScreen() {
 
     try {
       const orderData = {
-        user_id: userData.user_id,
+        userEmail: userData.email,
         customer_name: name,
         delivery_address: address,
         payment_method: paymentMethod,

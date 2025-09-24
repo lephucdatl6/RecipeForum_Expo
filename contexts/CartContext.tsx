@@ -3,7 +3,7 @@ import { API_BASE_URL } from '../config/apiConfig';
 
 interface CartContextType {
   cartItemCount: number;
-  loadCartItemCount: (userEmail: string) => Promise<void>;
+  loadCartItemCount: (userId: string) => Promise<void>;
   updateCartItemCount: (count: number) => void;
   isLoading: boolean;
 }
@@ -18,12 +18,12 @@ export function CartProvider({ children }: CartProviderProps) {
   const [cartItemCount, setCartItemCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const loadCartItemCount = useCallback(async (userEmail: string) => {
-    if (!userEmail) return;
+  const loadCartItemCount = useCallback(async (userId: string) => {
+    if (!userId) return;
     
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/cart/${userEmail}`);
+      const response = await fetch(`${API_BASE_URL}/api/cart/${userId}`);
       const data = await response.json();
       
       if (data.success && data.cart && data.cart.items) {

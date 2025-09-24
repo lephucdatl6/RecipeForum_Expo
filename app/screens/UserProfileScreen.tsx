@@ -7,7 +7,7 @@ import { API_BASE_URL } from '../../config/apiConfig';
 import { useCart } from '../../contexts/CartContext';
 
 interface UserData {
-  user_id: number;
+  user_id: string;
   username: string;
   email: string;
   dateOfBirth: string;
@@ -121,20 +121,20 @@ export default function UserProfileScreen() {
 
   // Load cart count when user data is available
   useEffect(() => {
-    if (userData?.email) {
-      loadCartItemCount(userData.email);
+    if (userData?.user_id) {
+      loadCartItemCount(userData.user_id);
     }
-  }, [userData?.email, loadCartItemCount]);
+  }, [userData?.user_id, loadCartItemCount]);
 
   useFocusEffect(
     useCallback(() => {
       if (userEmail && originalUserData) {
         fetchUserDataWithEmail(userEmail, true); 
       }
-      if (userData?.email) {
-        loadCartItemCount(userData.email);
+      if (userData?.user_id) {
+        loadCartItemCount(userData.user_id);
       }
-    }, [userEmail, originalUserData, fetchUserDataWithEmail, userData?.email, loadCartItemCount])
+    }, [userEmail, originalUserData, fetchUserDataWithEmail, userData?.user_id, loadCartItemCount])
   );
 
   const handleLogout = () => {
