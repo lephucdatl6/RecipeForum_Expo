@@ -30,6 +30,7 @@ interface Recipe {
   image?: string;
   imageStatus?: 'none' | 'pending' | 'processing' | 'ready' | 'failed';
   ingredients?: Ingredient[];
+  isBookmarked?: boolean;
 }
 
 interface UserData {
@@ -140,12 +141,17 @@ export default function PostDetailScreen() {
         const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/vote-status/${userData.email}`);
         const data = await response.json();
         
+        // Also check bookmark status
+        const bookmarkResponse = await fetch(`${API_BASE_URL}/api/bookmarks/${userData.user_id}/${recipe.id}`);
+        const bookmarkData = await bookmarkResponse.json();
+        
         if (data.success) {
           setRecipe(prev => prev ? {
             ...prev,
             userVote: data.userVote,
             upvotes: data.upvotes,
-            downvotes: data.downvotes
+            downvotes: data.downvotes,
+            isBookmarked: bookmarkData.success ? bookmarkData.isBookmarked : false
           } : null);
           setVoteStatusLoaded(true);
         }
@@ -217,6 +223,10 @@ export default function PostDetailScreen() {
           const voteResponse = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/vote-status/${userData.email}`);
           const voteData = await voteResponse.json();
           
+          // Also check bookmark status
+          const bookmarkResponse = await fetch(`${API_BASE_URL}/api/bookmarks/${userData.user_id}/${recipe.id}`);
+          const bookmarkData = await bookmarkResponse.json();
+          
           const updatedRecipe: Recipe = {
             id: data.recipe._id,
             title: data.recipe.title,
@@ -233,7 +243,8 @@ export default function PostDetailScreen() {
             userVote: voteData.success ? voteData.userVote : null,
             image: data.recipe.image,
             imageStatus: data.recipe.imageStatus,
-            ingredients: data.recipe.ingredients || []
+            ingredients: data.recipe.ingredients || [],
+            isBookmarked: bookmarkData.success ? bookmarkData.isBookmarked : false
           };
           setRecipe(updatedRecipe);
           setVoteStatusLoaded(true);
@@ -242,7 +253,7 @@ export default function PostDetailScreen() {
         console.error('Error refreshing recipe data:', error);
       }
     }
-  }, [recipe?.id, userData?.email]);
+  }, [recipe?.id, userData?.email, userData?.user_id]);
 
   // Refresh data when screen comes into focus (e.g., after editing)
   useFocusEffect(
@@ -836,6 +847,45 @@ export default function PostDetailScreen() {
     }
   };
 
+  const handleBookmark = async (recipeId: string) => {
+    if (!userData || !recipe) {
+      Alert.alert('Error', 'Please login to bookmark recipes');
+      return;
+    }
+
+    try {
+      const isCurrentlyBookmarked = recipe.isBookmarked;
+      const method = isCurrentlyBookmarked ? 'DELETE' : 'POST';
+
+      // Optimistic update
+      setRecipe(prev => prev ? { ...prev, isBookmarked: !isCurrentlyBookmarked } : null);
+
+      const response = await fetch(`${API_BASE_URL}/api/bookmarks`, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userData.user_id,
+          recipeId: recipeId
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        // Revert optimistic update
+        setRecipe(prev => prev ? { ...prev, isBookmarked: isCurrentlyBookmarked } : null);
+        Alert.alert('Error', data.error || 'Failed to update bookmark');
+      }
+    } catch (error) {
+      // Revert optimistic update
+      setRecipe(prev => prev ? { ...prev, isBookmarked: recipe.isBookmarked } : null);
+      console.error('Error bookmarking:', error);
+      Alert.alert('Error', 'Failed to update bookmark. Please try again.');
+    }
+  };
+
   // Smart quantity conversion for shopping cart with realistic package sizes
   const getShoppingQuantity = async (amount: number, unit: string, ingredientId: number): Promise<number> => {
     try {
@@ -1298,6 +1348,16 @@ export default function PostDetailScreen() {
                 <Text style={styles.commentCountIcon}>💬</Text>
                 <Text style={styles.commentCountText}>{commentStats.totalComments}</Text>
               </View>
+
+              {/* Bookmark Button */}
+              <TouchableOpacity 
+                style={styles.bookmarkButton}
+                onPress={() => handleBookmark(recipe.id?.toString() || '')}
+              >
+                <Text style={styles.bookmarkIcon}>
+                  {recipe.isBookmarked ? '🌟' : '⭐'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -2063,5 +2123,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6c757d',
     fontStyle: 'italic',
+  },
+  bookmarkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 8,
+    paddingBottom: 5,
+    paddingHorizontal: 15,
+    backgroundColor: '#fafafa',
+    marginTop: 8,
+    borderRadius: 20,
+    width: 50,
+    height: 40,                  
+    alignSelf: 'flex-start',   
+  },
+  bookmarkIcon: {
+    fontSize: 16,
+    color: '#666',
   },
 });

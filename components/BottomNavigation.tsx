@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useCart } from '../contexts/CartContext';
 
 interface BottomNavigationProps {
-  activeTab: 'profile' | 'forum' | 'recipes' | 'notifications' | 'cart';
+  activeTab: 'profile' | 'forum' | 'bookmarks' | 'notifications' | 'cart';
   userData?: any;
 }
 
@@ -29,9 +29,9 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
           params: navigationParams
         });
         break;
-      case 'recipes':
+      case 'bookmarks':
         router.replace({
-          pathname: './RecipesListScreen',
+          pathname: './BookmarkScreen',
           params: navigationParams
         });
         break;
@@ -70,12 +70,12 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
 
       <TouchableOpacity 
         style={styles.tab} 
-        onPress={() => navigateToTab('recipes')}
+        onPress={() => navigateToTab('bookmarks')}
       >
         <View style={styles.iconContainer}>
-          <Text style={[styles.icon, activeTab === 'recipes' && styles.activeIcon]}>📖</Text>
+          <Text style={[styles.icon, activeTab === 'bookmarks' && styles.activeIcon]}>📙</Text>
         </View>
-        <Text style={[styles.label, activeTab === 'recipes' && styles.activeLabel]}>Recipes List</Text>
+        <Text style={[styles.label, activeTab === 'bookmarks' && styles.activeLabel]}>Bookmarks</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 

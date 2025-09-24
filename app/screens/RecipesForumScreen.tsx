@@ -31,6 +31,7 @@ interface Recipe {
   commentCount?: number;
   image?: string;
   imageStatus?: 'none' | 'pending' | 'processing' | 'ready' | 'failed';
+  isBookmarked?: boolean;
 }
 
 export default function RecipesForumScreen() {
@@ -209,6 +210,32 @@ export default function RecipesForumScreen() {
           recipesWithIds = await Promise.all(commentPromises);
         } catch (error) {
           console.error('Error loading comment counts:', error);
+        }
+        
+        // Load bookmark status for all recipes (if user is logged in)
+        if (userData) {
+          try {
+            const bookmarkPromises = recipesWithIds.map(async (recipe: any) => {
+              try {
+                const bookmarkResponse = await fetch(`${API_BASE_URL}/api/bookmarks/${userData.user_id}/${recipe.id}`);
+                const bookmarkData = await bookmarkResponse.json();
+                
+                if (bookmarkData.success) {
+                  return {
+                    ...recipe,
+                    isBookmarked: bookmarkData.isBookmarked
+                  };
+                }
+              } catch (bookmarkError) {
+                console.error('Error loading bookmark status for recipe:', recipe.id, bookmarkError);
+              }
+              return { ...recipe, isBookmarked: false };
+            });
+            
+            recipesWithIds = await Promise.all(bookmarkPromises);
+          } catch (error) {
+            console.error('Error loading bookmark statuses:', error);
+          }
         }
         
         setRecipes(recipesWithIds);
@@ -498,6 +525,55 @@ export default function RecipesForumScreen() {
     }
   };
 
+  const handleBookmark = async (recipeId: string) => {
+    if (!userData) {
+      Alert.alert('Error', 'Please login to bookmark recipes');
+      return;
+    }
+
+    try {
+      const currentRecipe = recipes.find(r => r.id?.toString() === recipeId);
+      if (!currentRecipe) return;
+
+      const isCurrentlyBookmarked = currentRecipe.isBookmarked;
+      const method = isCurrentlyBookmarked ? 'DELETE' : 'POST';
+
+      const response = await fetch(`${API_BASE_URL}/api/bookmarks`, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userData.user_id,
+          recipeId: recipeId
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the recipe bookmark status
+        const updateRecipe = (recipe: Recipe) => {
+          if (recipe.id?.toString() === recipeId) {
+            return {
+              ...recipe,
+              isBookmarked: !isCurrentlyBookmarked
+            };
+          }
+          return recipe;
+        };
+
+        setRecipes(prev => prev.map(updateRecipe));
+        setFilteredRecipes(prev => prev.map(updateRecipe));
+      } else {
+        Alert.alert('Error', data.error || 'Failed to update bookmark');
+      }
+    } catch (error) {
+      console.error('Error updating bookmark:', error);
+      Alert.alert('Error', 'Failed to update bookmark. Please try again.');
+    }
+  };
+
   const renderRecipeCard = ({ item }: { item: Recipe }) => (
     <View style={styles.recipeCard}>
       <TouchableOpacity onPress={() => handlePostPress(item)}>
@@ -592,6 +668,19 @@ export default function RecipesForumScreen() {
           <Text style={styles.commentCountIcon}>💬</Text>
           <Text style={styles.commentCountText}>{item.commentCount || 0}</Text>
         </View>
+
+        {/* Bookmark Button */}
+        <TouchableOpacity 
+          style={styles.bookmarkButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleBookmark(item.id?.toString() || '');
+          }}
+        >
+          <Text style={styles.bookmarkIcon}>
+            {item.isBookmarked ? '🌟' : '⭐'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -1113,5 +1202,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6c757d',
     fontStyle: 'italic',
+  },
+  bookmarkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 8,
+    paddingBottom: 5,
+    paddingHorizontal: 15,
+    backgroundColor: '#fafafa',
+    marginTop: 8,
+    borderRadius: 20,
+    width: 50,
+    height: 40,                  
+    alignSelf: 'flex-start',   
+  },
+  bookmarkIcon: {
+    fontSize: 16,
+    color: '#666',
   },
 });
