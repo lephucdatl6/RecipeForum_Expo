@@ -247,7 +247,6 @@ export default function PostDetailScreen() {
   // Refresh data when screen comes into focus (e.g., after editing)
   useFocusEffect(
     useCallback(() => {
-      // Only refresh if the necessary data and vote status is already loaded
       if (userData?.email && recipe?.id && voteStatusLoaded) {
         const timeoutId = setTimeout(() => {
           refreshRecipeData();
@@ -257,7 +256,7 @@ export default function PostDetailScreen() {
           loadComments();
           loadCommentStats();
           if (userData?.email) {
-            loadCartItemCount(userData.email); // Refresh cart count when screen comes into focus
+            loadCartItemCount(userData.email);
           }
         }, 200);
         
@@ -302,12 +301,11 @@ export default function PostDetailScreen() {
         setKeyboardHeight(newHeight);
         setIsKeyboardVisible(true);
         
-        // Smooth animation for keyboard appearance
         Animated.timing(keyboardAnimatedValue, {
           toValue: newHeight,
           duration: 250, 
           easing: Easing.out(Easing.quad),
-          useNativeDriver: false, // Can't use native driver for layout properties
+          useNativeDriver: false,
         }).start();
       }
     );
@@ -318,7 +316,6 @@ export default function PostDetailScreen() {
         setKeyboardHeight(0);
         setIsKeyboardVisible(false);
         
-        // Smooth animation for keyboard hiding
         Animated.timing(keyboardAnimatedValue, {
           toValue: 0,
           duration: 250, 
@@ -328,7 +325,6 @@ export default function PostDetailScreen() {
       }
     );
 
-    // For even smoother response, also listen to keyboardWillShow/Hide on iOS
     const keyboardWillShowListener = Platform.OS === 'ios' ? Keyboard.addListener(
       'keyboardWillShow',
       (e) => {
@@ -352,7 +348,6 @@ export default function PostDetailScreen() {
         setKeyboardHeight(0);
         setIsKeyboardVisible(false);
         
-        // Start animation immediately on iOS
         Animated.timing(keyboardAnimatedValue, {
           toValue: 0,
           duration: e.duration || 250,
