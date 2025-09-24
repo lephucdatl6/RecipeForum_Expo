@@ -23,7 +23,6 @@ function getLocalIPAddress() {
   // If no priority interface found, search all interfaces
   for (const interfaceName in interfaces) {
     for (const iface of interfaces[interfaceName]) {
-      // Skip internal (localhost) and non-IPv4 addresses
       if (iface.family === 'IPv4' && !iface.internal) {
         return iface.address;
       }

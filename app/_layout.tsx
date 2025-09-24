@@ -36,6 +36,8 @@ export default function RootLayout() {
           <Stack.Screen name="screens/NotificationsScreen" options={{ headerShown: false }} />
           <Stack.Screen name="screens/ViewProfileScreen" options={{ headerShown: false }} />
           <Stack.Screen name="screens/EditProfileScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/ShoppingCartScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/CheckoutScreen" />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="auto" />

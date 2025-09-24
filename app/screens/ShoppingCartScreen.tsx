@@ -333,7 +333,16 @@ export default function ShoppingCartScreen() {
             />
 
             <View style={styles.checkoutSection}>
-              <TouchableOpacity style={styles.checkoutButton}>
+              <TouchableOpacity 
+                style={styles.checkoutButton}
+                onPress={() => router.push({
+                  pathname: './CheckoutScreen',
+                  params: { 
+                    userData: JSON.stringify(userData),
+                    cart: JSON.stringify(cart)
+                  }
+                })}
+              >
                 <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
               </TouchableOpacity>
             </View>
