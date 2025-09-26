@@ -279,15 +279,6 @@ export default function BookmarkScreen() {
       <Text style={styles.emptyDescription}>
         Start bookmarking your favorite recipes from the forum to see them here!
       </Text>
-      <TouchableOpacity 
-        style={styles.exploreButton}
-        onPress={() => router.push({
-          pathname: '/screens/RecipesForumScreen',
-          params: { userData: JSON.stringify(userData) }
-        })}
-      >
-        <Text style={styles.exploreButtonText}>Explore Recipes</Text>
-      </TouchableOpacity>
     </View>
   );
 
@@ -482,18 +473,6 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 24,
-    marginBottom: 30,
-  },
-  exploreButton: {
-    backgroundColor: '#ff8c00',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 25,
-  },
-  exploreButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
   actionsContainer: {
     flexDirection: 'row',

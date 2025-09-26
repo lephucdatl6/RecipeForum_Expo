@@ -2665,21 +2665,24 @@ app.get('/api/admin/orders', async (req, res) => {
 // Get order statistics (admin)
 app.get('/api/admin/orders/stats', async (req, res) => {
   try {
-    // Overall statistics
+    // Overall statistics (excluding cancelled orders from revenue)
     const overallStats = await pool.query(`
       SELECT 
         COUNT(*) as total_orders,
-        COALESCE(SUM(total_amount), 0) as total_revenue,
-        COALESCE(AVG(total_amount), 0) as average_order_value
+        COALESCE(SUM(CASE WHEN LOWER(status) != 'cancelled' THEN total_amount ELSE 0 END), 0) as total_revenue,
+        COALESCE(AVG(CASE WHEN LOWER(status) != 'cancelled' THEN total_amount END), 0) as average_order_value
       FROM orders
     `);
 
-    // Status breakdown
+    // Status breakdown (revenue only for non-cancelled orders)
     const statusStats = await pool.query(`
       SELECT 
         status,
         COUNT(*) as count,
-        COALESCE(SUM(total_amount), 0) as revenue
+        CASE 
+          WHEN LOWER(status) = 'cancelled' THEN 0
+          ELSE COALESCE(SUM(total_amount), 0)
+        END as revenue
       FROM orders
       GROUP BY status
       ORDER BY count DESC
