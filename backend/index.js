@@ -5,7 +5,7 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 const { Pool } = require('pg');
 const mongoose = require('mongoose');
-const { sendWelcomeEmail } = require('./emailService');
+const { sendWelcomeEmail, sendOrderConfirmationEmail } = require('./emailService');
 const { generateApiConfig } = require('../scripts/generateApiConfig');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
@@ -587,12 +587,68 @@ async function ensureBookmarksTable() {
   }
 }
 
+// Add orders and order_items tables
+async function ensureOrderTables() {
+  try {
+    const userIdTypeQuery = await pool.query(`
+      SELECT data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'user_id'
+    `);
+    
+    let userIdType = 'INTEGER';
+    if (userIdTypeQuery.rows.length > 0) {
+      const actualType = userIdTypeQuery.rows[0].data_type;
+      if (actualType.includes('character') || actualType.includes('varchar') || actualType.includes('uuid')) {
+        userIdType = 'TEXT';
+      }
+    }
+
+    // Create orders table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        user_id ${userIdType} NOT NULL,
+        customer_name VARCHAR(255) NOT NULL,
+        delivery_address TEXT NOT NULL,
+        payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('Cash', 'Credit')),
+        total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        points_used INTEGER DEFAULT 0,
+        discount_amount DECIMAL(10,2) DEFAULT 0.00,
+        status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Preparing', 'Shipped', 'Arrived', 'Cancelled')),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Create order_items table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS order_items (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER NOT NULL,
+        ingredient_id INTEGER NOT NULL,
+        ingredient_name VARCHAR(255) NOT NULL,
+        quantity DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+        unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        total_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        package_size DECIMAL(10,2) DEFAULT 1.00,
+        package_unit VARCHAR(50) DEFAULT 'pcs',
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+      )
+    `);
+
+  } catch (err) {
+    console.error('Error creating order tables:', err.message);
+  }
+}
+
 // Initialize all tables in proper order
 async function initializeTables() {
   await ensureUsersTable();
   await ensureIngredientsTable();
   await ensureShoppingCartTables();
   await ensureBookmarksTable();
+  await ensureOrderTables();
 }
 
 initializeTables();
@@ -1903,7 +1959,7 @@ app.delete('/api/recipes/:id', async (req, res) => {
 app.get('/api/recipes/:id/comments', async (req, res) => {
   try {
     const { id } = req.params;
-    const { page = 1, limit = 20 } = req.query; // Default pagination
+    const { page = 1, limit = 20 } = req.query;
 
     // Validate recipe exists and is active
     const recipe = await Recipe.findOne({ _id: id, isActive: 1 });
@@ -2289,6 +2345,518 @@ const PORT = process.env.PORT || 3001;
 
 // ==================== ADMIN ORDER ENDPOINTS ====================
 
+// Create a new order
+app.post('/api/orders', async (req, res) => {
+  try {
+    const {
+      userEmail,
+      customer_name,
+      delivery_address,
+      payment_method,
+      total_amount,
+      points_used = 0,
+      discount_amount = 0,
+      cart_items,
+      status = 'Pending'
+    } = req.body;
+
+    // Validate required fields
+    if (!userEmail || !customer_name || !delivery_address || !payment_method || !cart_items || cart_items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields'
+      });
+    }
+
+    // Get user_id from email
+    const userResult = await pool.query(
+      'SELECT user_id, points FROM users WHERE email = $1',
+      [userEmail]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Check if user has enough points for discount
+    if (points_used > 0 && user.points < points_used) {
+      return res.status(400).json({
+        success: false,
+        error: 'Insufficient points for discount'
+      });
+    }
+
+    // Start transaction
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      // Create the order - convert user_id to string to handle both integers and UUIDs
+      const orderResult = await client.query(`
+        INSERT INTO orders (
+          user_id, customer_name, delivery_address, payment_method, 
+          total_amount, points_used, discount_amount, status, created_at, updated_at
+        ) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()) 
+        RETURNING id
+      `, [
+        String(user.user_id), customer_name, delivery_address, payment_method,
+        total_amount, points_used, discount_amount, status
+      ]);
+
+      const orderId = orderResult.rows[0].id;
+
+      // Insert order items
+      for (const item of cart_items) {
+        const totalPrice = parseFloat(item.ingredient_price) * parseFloat(item.quantity);
+        
+        await client.query(`
+          INSERT INTO order_items (
+            order_id, ingredient_id, ingredient_name, quantity, 
+            unit_price, total_price, package_size, package_unit
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+          orderId, item.ingredient_id, item.ingredient_name, item.quantity,
+          item.ingredient_price, totalPrice, item.package_size, item.package_unit
+        ]);
+      }
+
+      // Deduct points if used
+      if (points_used > 0) {
+        await client.query(
+          'UPDATE users SET points = points - $1 WHERE user_id = $2',
+          [points_used, user.user_id]
+        );
+      }
+
+      // Clear user's shopping cart (shopping_carts might use integer user_id)
+      const cartResult = await client.query(
+        'SELECT id FROM shopping_carts WHERE user_id = $1',
+        [user.user_id]
+      );
+
+      if (cartResult.rows.length === 0) {
+        // Try with string user_id if integer didn't work
+        const cartResultStr = await client.query(
+          'SELECT id FROM shopping_carts WHERE user_id = $1',
+          [String(user.user_id)]
+        );
+        if (cartResultStr.rows.length > 0) {
+          const cartId = cartResultStr.rows[0].id;
+          await client.query('DELETE FROM cart_items WHERE cart_id = $1', [cartId]);
+          await client.query('DELETE FROM shopping_carts WHERE id = $1', [cartId]);
+        }
+      } else {
+        const cartId = cartResult.rows[0].id;
+        await client.query('DELETE FROM cart_items WHERE cart_id = $1', [cartId]);
+        await client.query('DELETE FROM shopping_carts WHERE id = $1', [cartId]);
+      }
+
+      await client.query('COMMIT');
+
+      // Send order confirmation email (don't wait for it to complete)
+      const orderDetails = {
+        orderId: orderId,
+        customerName: customer_name,
+        totalAmount: total_amount,
+        pointsUsed: points_used,
+        discountAmount: discount_amount,
+        deliveryAddress: delivery_address,
+        paymentMethod: payment_method,
+        items: cart_items.map(item => ({
+          ingredient_name: item.ingredient_name,
+          quantity: item.quantity,
+          package_size: item.package_size,
+          package_unit: item.package_unit,
+          total_price: parseFloat(item.ingredient_price) * parseFloat(item.quantity)
+        }))
+      };
+
+      sendOrderConfirmationEmail(userEmail, orderDetails).then(emailResult => {
+        if (emailResult.success) {
+          // console.log(`Order confirmation email sent to ${userEmail} for order #${orderId}`);
+        } else {
+          console.error(`Failed to send order confirmation email to ${userEmail}:`, emailResult.error);
+        }
+      }).catch(error => {
+        console.error('Error in order confirmation email process:', error);
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Order created successfully',
+        order_id: orderId
+      });
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create order',
+      details: error.message
+    });
+  }
+});
+
+// Get user's orders
+app.get('/api/orders/user/:userEmail', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+
+    // Get user_id from email
+    const userResult = await pool.query(
+      'SELECT user_id FROM users WHERE email = $1',
+      [userEmail]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userId = String(userResult.rows[0].user_id);
+
+    // Get orders with items
+    const ordersQuery = `
+      SELECT 
+        o.id, o.customer_name, o.delivery_address, o.payment_method,
+        o.total_amount, o.points_used, o.discount_amount, o.status,
+        o.created_at, o.updated_at,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'ingredient_id', oi.ingredient_id,
+              'ingredient_name', oi.ingredient_name,
+              'quantity', oi.quantity,
+              'unit_price', oi.unit_price,
+              'total_price', oi.total_price,
+              'package_size', oi.package_size,
+              'package_unit', oi.package_unit
+            ) ORDER BY oi.id
+          ) FILTER (WHERE oi.id IS NOT NULL), 
+          '[]'::json
+        ) as items
+      FROM orders o
+      LEFT JOIN order_items oi ON o.id = oi.order_id
+      WHERE o.user_id = $1
+      GROUP BY o.id
+      ORDER BY o.created_at DESC
+    `;
+
+    const result = await pool.query(ordersQuery, [userId]);
+
+    res.json({
+      success: true,
+      orders: result.rows
+    });
+
+  } catch (error) {
+    console.error('Error fetching user orders:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch orders'
+    });
+  }
+});
+
+// Get all orders (admin) with pagination and search
+app.get('/api/admin/orders', async (req, res) => {
+  try {
+    const { 
+      status, 
+      search, 
+      page = 1, 
+      limit = 20 
+    } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Base query for counting total results
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM orders o
+      JOIN users u ON o.user_id::text = u.user_id::text
+    `;
+
+    // Base query for fetching results
+    let dataQuery = `
+      SELECT 
+        o.id as order_id, o.user_id, o.customer_name, o.delivery_address, o.payment_method,
+        o.total_amount, o.points_used, o.discount_amount, o.status,
+        o.created_at, o.updated_at, u.email as user_email, u.username,
+        COUNT(oi.id) as item_count
+      FROM orders o
+      JOIN users u ON o.user_id::text = u.user_id::text
+      LEFT JOIN order_items oi ON o.id = oi.order_id
+    `;
+
+    const queryParams = [];
+    let whereConditions = [];
+    
+    if (status && status !== 'all') {
+      whereConditions.push(`o.status = $${queryParams.length + 1}`);
+      queryParams.push(status);
+    }
+    
+    if (search) {
+      whereConditions.push(`(
+        o.customer_name ILIKE $${queryParams.length + 1} OR 
+        u.email ILIKE $${queryParams.length + 1} OR 
+        o.id::text LIKE $${queryParams.length + 1}
+      )`);
+      queryParams.push(`%${search}%`);
+    }
+
+    if (whereConditions.length > 0) {
+      const whereClause = ` WHERE ${whereConditions.join(' AND ')}`;
+      countQuery += whereClause;
+      dataQuery += whereClause;
+    }
+
+    // Get total count
+    const countResult = await pool.query(countQuery, queryParams);
+    const totalOrders = parseInt(countResult.rows[0].total);
+
+    // Get paginated data
+    dataQuery += ` GROUP BY o.id, u.email, u.username ORDER BY o.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+    queryParams.push(parseInt(limit), offset);
+
+    const dataResult = await pool.query(dataQuery, queryParams);
+
+    const totalPages = Math.ceil(totalOrders / parseInt(limit));
+
+    res.json({
+      success: true,
+      orders: dataResult.rows,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalOrders,
+        hasNextPage: parseInt(page) < totalPages,
+        hasPreviousPage: parseInt(page) > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch orders'
+    });
+  }
+});
+
+// Get order statistics (admin)
+app.get('/api/admin/orders/stats', async (req, res) => {
+  try {
+    // Overall statistics
+    const overallStats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_orders,
+        COALESCE(SUM(total_amount), 0) as total_revenue,
+        COALESCE(AVG(total_amount), 0) as average_order_value
+      FROM orders
+    `);
+
+    // Status breakdown
+    const statusStats = await pool.query(`
+      SELECT 
+        status,
+        COUNT(*) as count,
+        COALESCE(SUM(total_amount), 0) as revenue
+      FROM orders
+      GROUP BY status
+      ORDER BY count DESC
+    `);
+
+    res.json({
+      success: true,
+      stats: {
+        overall: overallStats.rows[0],
+        statusBreakdown: statusStats.rows
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching order stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch order statistics'
+    });
+  }
+});
+
+// Update order status
+app.put('/api/orders/:orderId/status', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    // Validate status
+    const validStatuses = ['Pending', 'Preparing', 'Shipped', 'Arrived', 'Cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
+      });
+    }
+
+    const result = await pool.query(
+      'UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [status, orderId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Order status updated successfully',
+      order: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update order status'
+    });
+  }
+});
+
+// Get single order details
+app.get('/api/orders/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const orderQuery = `
+      SELECT 
+        o.id, o.customer_name, o.delivery_address, o.payment_method,
+        o.total_amount, o.points_used, o.discount_amount, o.status,
+        o.created_at, o.updated_at, u.email as user_email,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'ingredient_id', oi.ingredient_id,
+              'ingredient_name', oi.ingredient_name,
+              'quantity', oi.quantity,
+              'unit_price', oi.unit_price,
+              'total_price', oi.total_price,
+              'package_size', oi.package_size,
+              'package_unit', oi.package_unit
+            ) ORDER BY oi.id
+          ) FILTER (WHERE oi.id IS NOT NULL), 
+          '[]'::json
+        ) as items
+      FROM orders o
+      JOIN users u ON o.user_id = u.user_id
+      LEFT JOIN order_items oi ON o.id = oi.order_id
+      WHERE o.id = $1
+      GROUP BY o.id, u.email
+    `;
+
+    const result = await pool.query(orderQuery, [orderId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      order: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error fetching order details:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch order details'
+    });
+  }
+});
+
+// Get single order details (admin) - includes more user info
+app.get('/api/admin/orders/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const orderQuery = `
+      SELECT 
+        o.id as order_id, o.customer_name, o.delivery_address, o.payment_method,
+        o.total_amount, o.points_used, o.discount_amount, o.status,
+        o.created_at, o.updated_at, 
+        JSON_BUILD_OBJECT(
+          'email', u.email,
+          'username', u.username,
+          'phone', u.phone,
+          'points', u.points
+        ) as user_info,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'ingredient_id', oi.ingredient_id,
+              'ingredient_name', oi.ingredient_name,
+              'ingredient_price', oi.unit_price,
+              'quantity', oi.quantity,
+              'item_total', oi.total_price,
+              'package_size', oi.package_size,
+              'package_unit', oi.package_unit
+            ) ORDER BY oi.id
+          ) FILTER (WHERE oi.id IS NOT NULL), 
+          '[]'::json
+        ) as items
+      FROM orders o
+      JOIN users u ON o.user_id::text = u.user_id::text
+      LEFT JOIN order_items oi ON o.id = oi.order_id
+      WHERE o.id = $1
+      GROUP BY o.id, u.email, u.username, u.phone, u.points
+    `;
+
+    const result = await pool.query(orderQuery, [orderId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      order: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error fetching admin order details:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch order details'
+    });
+  }
+});
 
 
 // ==================== ADMIN ENDPOINTS ====================

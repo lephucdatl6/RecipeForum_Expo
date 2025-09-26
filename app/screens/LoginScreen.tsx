@@ -65,7 +65,7 @@ export default function LoginScreen() {
       }, axiosConfig);
 
       if (response.data.success) {
-        console.log('Login successful, navigating to RecipesForumScreen');
+        console.log('Login successful');
         // Store user data and navigate to forum screen
         router.replace({
           pathname: './RecipesForumScreen',

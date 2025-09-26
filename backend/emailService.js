@@ -66,6 +66,101 @@ const sendWelcomeEmail = async (userEmail, username) => {
   }
 };
 
+// Send order confirmation email
+const sendOrderConfirmationEmail = async (userEmail, orderDetails) => {
+  try {
+    const {
+      orderId,
+      customerName,
+      totalAmount,
+      pointsUsed,
+      discountAmount,
+      deliveryAddress,
+      paymentMethod,
+      items
+    } = orderDetails;
+
+    const itemsHtml = items.map(item => `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 10px; color: #333;">${item.ingredient_name}</td>
+        <td style="padding: 10px; color: #666; text-align: center;">${Math.round(item.quantity)}</td>
+        <td style="padding: 10px; color: #666; text-align: center;">${Math.round(item.package_size)} ${item.package_unit}</td>
+        <td style="padding: 10px; color: #4CAF50; text-align: right; font-weight: bold;">$${parseFloat(item.total_price).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    const mailOptions = {
+      from: {
+        name: 'Recipe Forum',
+        address: process.env.EMAIL_FROM,
+      },
+      to: userEmail,
+      subject: `Order Confirmation #${orderId} - RecipeForum`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+          <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #4CAF50; font-size: 28px; margin: 0;">Order Confirmed!</h1>
+              <p style="color: #666; font-size: 16px; margin: 10px 0;">Thank you for your order, ${customerName}</p>
+            </div>
+            
+            <div style="background-color: #d4edda; padding: 20px; border-radius: 8px; border-left: 4px solid #4CAF50; margin-bottom: 25px;">
+              <h2 style="color: #333; margin-top: 0;">Order #${orderId}</h2>
+              <p style="color: #666; line-height: 1.6; margin-bottom: 0;">
+                Your order has been successfully placed and is being prepared. You'll receive updates on your order status.
+              </p>
+            </div>
+            
+            <div style="margin-bottom: 25px;">
+              <h3 style="color: #333; margin-bottom: 15px; border-bottom: 2px solid #4CAF50; padding-bottom: 5px;">Order Details</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <thead>
+                  <tr style="background-color: #f8f9fa;">
+                    <th style="padding: 12px; text-align: left; color: #333; border-bottom: 2px solid #4CAF50;">Ingredient</th>
+                    <th style="padding: 12px; text-align: center; color: #333; border-bottom: 2px solid #4CAF50;">Quantity</th>
+                    <th style="padding: 12px; text-align: center; color: #333; border-bottom: 2px solid #4CAF50;">Package</th>
+                    <th style="padding: 12px; text-align: right; color: #333; border-bottom: 2px solid #4CAF50;">Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsHtml}
+                </tbody>
+              </table>
+            </div>
+
+            <div style="margin-bottom: 25px;">
+              <h3 style="color: #333; margin-bottom: 15px;">Order Summary</h3>
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
+                <p style="margin: 5px 0; color: #666;"><strong>Subtotal:</strong> $${parseFloat(totalAmount + (discountAmount || 0)).toFixed(2)}</p>
+                ${discountAmount > 0 ? `<p style="margin: 5px 0; color: #4CAF50;"><strong>Discount:</strong> -$${parseFloat(discountAmount).toFixed(2)}</p>` : ''}
+                <p style="margin: 5px 0; color: #333; font-size: 18px; font-weight: bold; border-top: 1px solid #ddd; padding-top: 10px;">
+                  <strong>Total Amount: $${parseFloat(totalAmount).toFixed(2)}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 25px;">
+              <h3 style="color: #333; margin-bottom: 15px;">Delivery Information</h3>
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
+                <p style="margin: 5px 0; color: #666;"><strong>Delivery Address:</strong><br>${deliveryAddress}</p>
+                <p style="margin: 5px 0; color: #666;"><strong>Payment Method:</strong> ${paymentMethod}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    // console.log('Order confirmation email sent successfully:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Error sending order confirmation email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   sendWelcomeEmail,
+  sendOrderConfirmationEmail,
 };

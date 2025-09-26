@@ -1,7 +1,6 @@
 <!-- 
   Ingredients Manager UI
   Access this page in browser: http://localhost:3001/ingredients-manager
-  Requires backend API: /api/ingredients
 -->
 
 <!DOCTYPE html>
@@ -11,61 +10,194 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ingredients Manager</title>
     <style>
-        * {
+        body {
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
+            background-color: #f5f5f5;
+            display: flex;
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #ff6b6b, #ffa500);
+        .sidebar {
+            width: 200px;
+            background-color: #2c3e50;
             color: white;
-            padding: 30px;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            padding: 20px 0;
+            overflow-y: auto;
+            transition: width 0.3s ease;
+            z-index: 1000;
+        }
+
+        .sidebar.collapsed {
+            width: 50px;
+            padding: 20px 10px;
+        }
+
+        .sidebar-header {
+            padding: 0 20px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #34495e;
+            padding-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar.collapsed .sidebar-header {
+            padding: 0 10px;
+            justify-content: center;
+        }
+
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 20px;
+            color: #4CAF50;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar.collapsed .sidebar-header h2 {
+            display: none;
+        }
+
+        .sidebar-header p {
+            margin: 5px 0 0 0;
+            font-size: 12px;
+            color: #bdc3c7;
+        }
+
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            color: #4CAF50;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            transform: rotate(0deg);
+        }
+
+        .sidebar.collapsed .sidebar-toggle {
+            transform: rotate(180deg);
+        }
+
+        .sidebar-toggle:hover {
+            background-color: rgba(76, 175, 80, 0.2);
+        }
+
+        .sidebar-nav {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar.collapsed .sidebar-nav {
+            display: none;
+        }
+
+        .sidebar-nav li {
+            margin: 0;
+        }
+
+        .sidebar-nav a {
+            display: block;
+            padding: 15px 20px;
+            color: #ecf0f1;
+            text-decoration: none;
+            border-left: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-nav a:hover {
+            background-color: #34495e;
+            border-left-color: #4CAF50;
+        }
+
+        .sidebar-nav a.active {
+            background-color: #4CAF50;
+            border-left-color: #2e8b57;
+            color: white;
+        }
+
+        .sidebar-nav a i {
+            margin-right: 10px;
+            width: 16px;
             text-align: center;
         }
 
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            width: calc(100% - 250px);
+            min-height: 100vh;
+            transition: margin-left 0.3s ease, width 0.3s ease;
+        }
+
+        .main-content.expanded {
+            margin-left: 50px;
+            width: calc(100% - 50px);
+        }
+
+        .show-sidebar-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            z-index: 999;
+            display: none;
+            transition: background-color 0.2s ease;
+        }
+
+        .show-sidebar-btn:hover {
+            background-color: #45a049;
+        }
+
+        .show-sidebar-btn.visible {
+            display: none; /* We don't need this button anymore since sidebar stays visible */
+        }
+
+        .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
         .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+            margin: 0;
+            font-size: 24px;
         }
 
         .header p {
-            font-size: 1.1rem;
+            margin: 5px 0 0 0;
             opacity: 0.9;
         }
 
-        .content {
-            padding: 30px;
-        }
-
         .form-section {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            border: 1px solid #e9ecef;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
 
         .form-section h2 {
             color: #333;
-            margin-bottom: 20px;
-            font-size: 1.5rem;
+            margin: 0 0 20px 0;
+            font-size: 1.2rem;
+            font-weight: 600;
         }
 
         .form-group {
@@ -77,74 +209,90 @@
             margin-bottom: 8px;
             color: #555;
             font-weight: 600;
+            font-size: 14px;
         }
 
         .form-group input,
-        .form-group textarea {
+        .form-group textarea,
+        .form-group select {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
         }
 
         .form-group input:focus,
-        .form-group textarea:focus {
+        .form-group textarea:focus,
+        .form-group select:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #4CAF50;
         }
 
         .form-group textarea {
             resize: vertical;
-            min-height: 100px;
+            min-height: 80px;
         }
 
         .btn {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background-color: #4CAF50;
             color: white;
             border: none;
-            padding: 12px 25px;
-            border-radius: 8px;
+            padding: 8px 12px;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            font-size: 14px;
+            font-weight: normal;
+            transition: background-color 0.2s ease;
             margin-right: 10px;
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            background-color: #45a049;
         }
 
         .btn-secondary {
-            background: linear-gradient(135deg, #6c757d, #495057);
+            background-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
         }
 
         .btn-danger {
-            background: linear-gradient(135deg, #dc3545, #c82333);
+            background-color: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
         }
 
         .ingredients-list {
             background: white;
-            border-radius: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             overflow: hidden;
-            border: 1px solid #e9ecef;
         }
 
         .ingredients-list h2 {
-            background: #f8f9fa;
+            background-color: #f8f9fa;
             padding: 20px;
             margin: 0;
             color: #333;
-            border-bottom: 1px solid #e9ecef;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-bottom: 1px solid #eee;
         }
 
         .ingredient-item {
-            padding: 20px;
-            border-bottom: 1px solid #f0f0f0;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
             transition: background-color 0.2s ease;
         }
 
@@ -160,48 +308,46 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .ingredient-name {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 600;
             color: #333;
         }
 
         .ingredient-id {
-            color: #6c757d;
+            color: #666;
             font-size: 0.9rem;
         }
 
         .ingredient-description {
             color: #666;
-            line-height: 1.5;
-            margin-bottom: 15px;
+            line-height: 1.4;
+            margin-bottom: 10px;
+            font-size: 14px;
         }
 
         .ingredient-actions {
             display: flex;
-            gap: 10px;
-        }
-
-        .btn-small {
-            padding: 8px 15px;
-            font-size: 14px;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
         .loading {
             text-align: center;
-            padding: 40px;
-            color: #6c757d;
+            padding: 30px;
+            color: #666;
+            font-size: 14px;
         }
 
         .success-message,
         .error-message {
             padding: 15px;
-            border-radius: 8px;
+            border-radius: 4px;
             margin-bottom: 20px;
-            font-weight: 600;
+            font-size: 14px;
         }
 
         .success-message {
@@ -217,42 +363,83 @@
         }
 
         .edit-form {
-            background: #e3f2fd;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 15px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .search-section {
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #4CAF50;
         }
 
         @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2rem;
-            }
-            
-            .content {
-                padding: 20px;
+            body {
+                padding: 10px;
             }
             
             .ingredient-header {
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 10px;
+                gap: 5px;
             }
             
             .ingredient-actions {
                 flex-wrap: wrap;
             }
+
+            .form-section {
+                padding: 15px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Ingredients Manager</h1>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>Admin Panel</h2>
         </div>
-        
-        <div class="content">
-            <!-- Success/Error Messages -->
-            <div id="messageContainer"></div>
+        <ul class="sidebar-nav">
+            <li>
+                <a href="/orders-manager">
+                    <i></i> Orders Manager
+                </a>
+            </li>
+            <li>
+                <a href="/ingredients-manager" class="active">
+                    <i></i> Ingredients Manager
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <div class="header">
+            <h1>Ingredients Management System</h1>
+        </div>
+    
+    <div class="content">
+        <!-- Success/Error Messages -->
+        <div id="messageContainer"></div>
             
             <!-- Add New Ingredient Form -->
             <div class="form-section">
@@ -326,6 +513,14 @@
             <!-- Ingredients List -->
             <div class="ingredients-list">
                 <h2>Current Ingredients</h2>
+                <div class="search-section">
+                    <input 
+                        type="text" 
+                        id="searchIngredients" 
+                        class="search-input" 
+                        placeholder="Search ingredients by name or description..."
+                    >
+                </div>
                 <div id="ingredientsList">
                     <div class="loading">Loading ingredients...</div>
                 </div>
@@ -340,12 +535,19 @@
         const addForm = document.getElementById('addIngredientForm');
         const ingredientsList = document.getElementById('ingredientsList');
         const messageContainer = document.getElementById('messageContainer');
+        const searchInput = document.getElementById('searchIngredients');
+        
+        // Store all ingredients for filtering
+        let allIngredients = [];
         
         // Load ingredients when page loads
         document.addEventListener('DOMContentLoaded', loadIngredients);
         
         // Add form submit handler
         addForm.addEventListener('submit', handleAddIngredient);
+        
+        // Add search functionality
+        searchInput.addEventListener('input', filterIngredients);
         
         async function loadIngredients() {
             try {
@@ -355,7 +557,8 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    displayIngredients(data.ingredients);
+                    allIngredients = data.ingredients; // Store all ingredients
+                    displayIngredients(allIngredients);
                 } else {
                     throw new Error(data.error || 'Failed to load ingredients');
                 }
@@ -378,10 +581,10 @@
                         <span class="ingredient-id">ID: ${ingredient.id}</span>
                     </div>
                     <div class="ingredient-description">${escapeHtml(ingredient.description || 'No description provided')}</div>
-                    <div class="ingredient-price" style="margin-bottom: 15px; color: #28a745; font-weight: 600;">
+                    <div class="ingredient-price" style="margin-bottom: 8px; color: #4CAF50; font-weight: 600; font-size: 14px;">
                         Price: $${parseFloat(ingredient.price || 0).toFixed(2)}
                     </div>
-                    <div class="ingredient-package" style="margin-bottom: 15px; color: #6c757d; font-size: 0.9em;">
+                    <div class="ingredient-package" style="margin-bottom: 12px; color: #666; font-size: 14px;">
                         Package: ${parseFloat(ingredient.package_size || 1).toFixed(2)} ${ingredient.package_unit || 'piece'}
                     </div>
                     <div class="ingredient-actions">
@@ -436,6 +639,24 @@
             ingredientsList.innerHTML = ingredientsHTML;
         }
         
+        // Filter ingredients based on search input
+        function filterIngredients() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                displayIngredients(allIngredients);
+                return;
+            }
+            
+            const filteredIngredients = allIngredients.filter(ingredient => {
+                const name = (ingredient.name || '').toLowerCase();
+                const description = (ingredient.description || '').toLowerCase();
+                return name.includes(searchTerm) || description.includes(searchTerm);
+            });
+            
+            displayIngredients(filteredIngredients);
+        }
+        
         async function handleAddIngredient(event) {
             event.preventDefault();
             
@@ -479,7 +700,7 @@
                 if (response.ok) {
                     showMessage(`Successfully added ingredient: ${ingredientData.name}`, 'success');
                     addForm.reset();
-                    loadIngredients();
+                    loadIngredients(); // This will refresh both allIngredients and display
                 } else {
                     throw new Error(data.error || 'Failed to add ingredient');
                 }
@@ -544,7 +765,7 @@
                 
                 if (response.ok) {
                     showMessage(`Successfully updated ingredient: ${name}`, 'success');
-                    loadIngredients();
+                    loadIngredients(); // This will refresh both allIngredients and display
                 } else {
                     throw new Error(data.error || 'Failed to update ingredient');
                 }
@@ -600,5 +821,6 @@
             return div.innerHTML;
         }
     </script>
+    </div>
 </body>
 </html>

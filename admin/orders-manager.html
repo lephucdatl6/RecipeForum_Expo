@@ -13,8 +13,83 @@
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background-color: #f5f5f5;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 200px;
+            background-color: #2c3e50;
+            color: white;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 0 20px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #34495e;
+            padding-bottom: 20px;
+        }
+
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 20px;
+            color: #4CAF50;
+        }
+
+        .sidebar-header p {
+            margin: 5px 0 0 0;
+            font-size: 12px;
+            color: #bdc3c7;
+        }
+
+        .sidebar-nav {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+
+        .sidebar-nav li {
+            margin: 0;
+        }
+
+        .sidebar-nav a {
+            display: block;
+            padding: 15px 20px;
+            color: #ecf0f1;
+            text-decoration: none;
+            border-left: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-nav a:hover {
+            background-color: #34495e;
+            border-left-color: #4CAF50;
+        }
+
+        .sidebar-nav a.active {
+            background-color: #4CAF50;
+            border-left-color: #2e8b57;
+            color: white;
+        }
+
+        .sidebar-nav a i {
+            margin-right: 10px;
+            width: 16px;
+            text-align: center;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            width: calc(100% - 250px);
+            min-height: 100vh;
         }
 
         .header {
@@ -76,6 +151,10 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
+        }
+
+        .controls input[type="text"] {
+            min-width: 180px;
         }
 
         .controls button {
@@ -168,6 +247,22 @@
         .pagination .current-page {
             font-weight: bold;
             color: #4CAF50;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border: 1px solid #4CAF50;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+
+        .action-btn:hover {
+            background-color: #45a049;
+            border-color: #45a049;
         }
 
         .loading {
@@ -279,14 +374,32 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Orders Management System</h1>
-        <p>Manage customer orders and track delivery status</p>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>Admin Panel</h2>
+        </div>
+        <ul class="sidebar-nav">
+            <li>
+                <a href="/orders-manager" class="active">
+                    <i></i> Orders Manager
+                </a>
+            </li>
+            <li>
+                <a href="/ingredients-manager">
+                    <i></i> Ingredients Manager
+                </a>
+            </li>
+        </ul>
     </div>
 
-    <!-- Statistics Cards -->
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <div class="header">
+            <h1>Orders Management System</h1>
+        </div>
+
     <div class="stats-grid" id="statsGrid">
-        <!-- Statistics will be loaded here -->
     </div>
 
     <!-- Controls -->
@@ -309,7 +422,7 @@
         </label>
         
         <button onclick="loadOrders()">Search</button>
-        <button onclick="refreshStats()">Refresh Stats</button>
+        <button onclick="location.reload()">Refresh Page</button>
     </div>
 
     <!-- Error Display -->
@@ -350,7 +463,6 @@
             <button class="close-btn" onclick="closeModal()">&times;</button>
         </div>
         <div class="modal-content" id="modalContent">
-            <!-- Order details will be loaded here -->
         </div>
     </div>
 
@@ -423,7 +535,7 @@
                     <td>$${parseFloat(order.total_amount).toFixed(2)}</td>
                     <td>${order.item_count} items</td>
                     <td>
-                        <button onclick="viewOrderDetails(${order.order_id})" style="padding: 4px 8px; font-size: 12px;">View Details</button>
+                        <button class="action-btn" onclick="viewOrderDetails(${order.order_id})">View Details</button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -646,6 +758,20 @@
                 loadOrders(1);
             }
         });
+
+        // Instant search as you type
+        document.getElementById('searchInput').addEventListener('input', function() {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = setTimeout(() => {
+                loadOrders(1);
+            }, 300);
+        });
+
+        // Status filter change event
+        document.getElementById('statusFilter').addEventListener('change', function() {
+            loadOrders(1);
+        });
     </script>
+    </div>
 </body>
 </html>
