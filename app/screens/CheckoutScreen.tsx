@@ -206,8 +206,13 @@ export default function CheckoutScreen() {
           {
             text: 'OK',
             onPress: () => {
-              // Navigate back to cart or profile screen
-              router.back();
+              // Navigate to OrderTrackingScreen
+              router.replace({
+                pathname: './OrderTrackingScreen',
+                params: {
+                  userData: JSON.stringify(userData)
+                }
+              });
             }
           }
         ]

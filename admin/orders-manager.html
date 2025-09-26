@@ -422,7 +422,10 @@
         </label>
         
         <button onclick="loadOrders()">Search</button>
-        <button onclick="location.reload()">Refresh Page</button>
+        <button id="autoRefreshToggle" onclick="toggleAutoRefresh()">
+            Auto-refresh: OFF
+        </button>
+        <span id="autoRefreshStatus" style="margin-left: 10px; font-size: 12px; color: #666;"></span>
     </div>
 
     <!-- Error Display -->
@@ -470,6 +473,12 @@
         const API_BASE_URL = 'http://localhost:3001';
         let currentPage = 1;
         let totalPages = 1;
+        
+        // Auto-refresh variables
+        let autoRefreshEnabled = false;
+        let autoRefreshInterval = null;
+        let autoRefreshCountdown = 30;
+        let countdownInterval = null;
 
         // Load orders on page load
         document.addEventListener('DOMContentLoaded', function() {
@@ -524,13 +533,14 @@
                     </td>
                     <td>${new Date(order.created_at).toLocaleDateString()}</td>
                     <td>
-                        <select class="status-select" onchange="updateOrderStatus(${order.order_id}, this.value)">
+                        <select class="status-select" onchange="updateOrderStatus(${order.order_id}, this.value)" ${order.status === 'Cancelled' ? 'disabled' : ''}>
                             <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
                             <option value="Preparing" ${order.status === 'Preparing' ? 'selected' : ''}>Preparing</option>
                             <option value="Shipped" ${order.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
                             <option value="Arrived" ${order.status === 'Arrived' ? 'selected' : ''}>Arrived</option>
                             <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
                         </select>
+                        ${order.status === 'Cancelled' ? '<div style="font-size: 10px; color: #721c24; margin-top: 2px;">Status locked</div>' : ''}
                     </td>
                     <td>$${parseFloat(order.total_amount).toFixed(2)}</td>
                     <td>${order.item_count} items</td>
@@ -566,6 +576,22 @@
 
         // Update order status
         async function updateOrderStatus(orderId, newStatus) {
+            // Show confirmation dialog for cancellation
+            if (newStatus === 'Cancelled') {
+                const confirmCancel = confirm(
+                    '⚠️ WARNING: Cancel Order?\n\n' +
+                    'Are you sure you want to cancel this order?\n\n' +
+                    '• Once cancelled, this action CANNOT be undone\n' +
+                    '• The order status will be permanently locked\n\n' +
+                    'Click OK to confirm cancellation or Cancel to abort.'
+                );
+                
+                if (!confirmCancel) {
+                    loadOrders(currentPage);
+                    return;
+                }
+            }
+
             try {
                 const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/status`, {
                     method: 'PUT',
@@ -770,6 +796,74 @@
         // Status filter change event
         document.getElementById('statusFilter').addEventListener('change', function() {
             loadOrders(1);
+        });
+
+        // Auto-refresh functionality
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            const button = document.getElementById('autoRefreshToggle');
+            const status = document.getElementById('autoRefreshStatus');
+            
+            if (autoRefreshEnabled) {
+                button.innerHTML = 'Auto-refresh: ON';
+                button.style.backgroundColor = '#4CAF50';
+                button.style.color = 'white';
+                startAutoRefresh();
+            } else {
+                button.innerHTML = 'Auto-refresh: OFF';
+                button.style.backgroundColor = '';
+                button.style.color = '';
+                stopAutoRefresh();
+                status.textContent = '';
+            }
+        }
+
+        function startAutoRefresh() {
+            stopAutoRefresh();
+            
+            autoRefreshCountdown = 30;
+            
+            // Start the main refresh interval (30 seconds)
+            autoRefreshInterval = setInterval(() => {
+                loadOrders(currentPage);
+                refreshStats();
+                autoRefreshCountdown = 30; // Reset countdown
+            }, 30000);
+            
+            updateCountdown();
+            countdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+        }
+
+        function updateCountdown() {
+            const status = document.getElementById('autoRefreshStatus');
+            if (autoRefreshEnabled) {
+                status.textContent = `Next refresh in ${autoRefreshCountdown}s`;
+                autoRefreshCountdown--;
+                
+                if (autoRefreshCountdown < 0) {
+                    autoRefreshCountdown = 29;
+                }
+            }
+        }
+
+        // Stop auto-refresh when page is hidden/minimized
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && autoRefreshEnabled) {
+                stopAutoRefresh();
+            } else if (!document.hidden && autoRefreshEnabled) {
+                startAutoRefresh();
+            }
         });
     </script>
     </div>

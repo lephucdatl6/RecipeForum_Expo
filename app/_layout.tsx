@@ -33,7 +33,7 @@ export default function RootLayout() {
           <Stack.Screen name="screens/CreatePostScreen" options={{ headerShown: false }} />
           <Stack.Screen name="screens/EditPostScreen" options={{ headerShown: false }} />
           <Stack.Screen name="screens/BookmarkScreen" options={{ headerShown: false }} />
-          <Stack.Screen name="screens/NotificationsScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/OrderTrackingScreen" options={{ headerShown: false }} />
           <Stack.Screen name="screens/ViewProfileScreen" options={{ headerShown: false }} />
           <Stack.Screen name="screens/EditProfileScreen" options={{ headerShown: false }} />
           <Stack.Screen name="screens/ShoppingCartScreen" options={{ headerShown: false }} />

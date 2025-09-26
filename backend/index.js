@@ -42,6 +42,14 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// Test PostgreSQL connection
+pool.connect()
+.then(client => {
+  console.log('✅ PostgreSQL connected successfully');
+  client.release();
+})
+.catch(err => console.error('❌ PostgreSQL connection error:', err));
+
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('✅ MongoDB connected successfully'))
@@ -2575,6 +2583,85 @@ app.get('/api/orders/user/:userEmail', async (req, res) => {
   }
 });
 
+// Get user's orders by userId (for mobile app)
+app.get('/api/orders/userid/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // console.log('Fetching orders for userId:', userId);
+
+    // Get orders for the user (fixed column names)
+    const ordersQuery = `
+      SELECT 
+        o.id as order_id,
+        o.user_id,
+        o.customer_name,
+        o.delivery_address,
+        o.payment_method,
+        o.total_amount,
+        o.points_used,
+        o.discount_amount,
+        o.status,
+        o.created_at,
+        o.updated_at,
+        '' as user_email,
+        '' as username,
+        (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) as item_count
+      FROM orders o
+      WHERE o.user_id = $1
+      ORDER BY o.created_at DESC
+    `;
+
+    const result = await pool.query(ordersQuery, [userId]);
+    // console.log('Query result:', result.rows.length, 'orders found');
+
+    res.json({
+      success: true,
+      orders: result.rows
+    });
+
+  } catch (error) {
+    console.error('Error fetching user orders by userId:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch orders'
+    });
+  }
+});
+
+// Get order items by order ID
+app.get('/api/orders/:orderId/items', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const itemsQuery = `
+      SELECT 
+        oi.ingredient_id,
+        oi.ingredient_name,
+        oi.quantity,
+        CONCAT(oi.package_size, ' ', oi.package_unit) as package_type,
+        oi.unit_price as price_per_unit,
+        oi.total_price
+      FROM order_items oi
+      WHERE oi.order_id = $1
+      ORDER BY oi.ingredient_id
+    `;
+
+    const result = await pool.query(itemsQuery, [orderId]);
+
+    res.json({
+      success: true,
+      items: result.rows
+    });
+
+  } catch (error) {
+    console.error('Error fetching order items:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch order items'
+    });
+  }
+});
+
 // Get all orders (admin) with pagination and search
 app.get('/api/admin/orders', async (req, res) => {
   try {
@@ -2801,6 +2888,87 @@ app.get('/api/orders/:orderId', async (req, res) => {
   }
 });
 
+// Cancel order endpoint
+app.put('/api/orders/:orderId/cancel', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { userId } = req.body;
+
+    // Get the current order details
+    const orderCheck = await pool.query(
+      'SELECT status, created_at, user_id FROM orders WHERE id = $1',
+      [orderId]
+    );
+
+    if (orderCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    const order = orderCheck.rows[0];
+
+    // Verify the user owns this order
+    if (order.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized: You can only cancel your own orders'
+      });
+    }
+
+    // Check if order is already cancelled
+    if (order.status.toLowerCase() === 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        error: 'Order is already cancelled'
+      });
+    }
+
+    // Only allow cancellation of pending orders
+    const cancellableStatuses = ['pending'];
+    if (!cancellableStatuses.includes(order.status.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot cancel order with status: ${order.status}. Only pending orders can be cancelled.`
+      });
+    }
+
+    // Only allow cancellation within 30 minutes
+    const orderTime = new Date(order.created_at);
+    const currentTime = new Date();
+    const timeDiffMinutes = (currentTime - orderTime) / (1000 * 60);
+    
+    if (timeDiffMinutes > 30) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot cancel order after 30 minutes of placement'
+      });
+    }
+
+    // Update order status to cancelled
+    const result = await pool.query(
+      'UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      ['Cancelled', orderId]
+    );
+
+    // console.log(`Order ${orderId} cancelled by user ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Order cancelled successfully',
+      order: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error cancelling order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to cancel order'
+    });
+  }
+});
+
 // Get single order details (admin) - includes more user info
 app.get('/api/admin/orders/:orderId', async (req, res) => {
   try {
@@ -2861,332 +3029,6 @@ app.get('/api/admin/orders/:orderId', async (req, res) => {
   }
 });
 
-
-// ==================== ADMIN ENDPOINTS ====================
-
-// Database Analytics - Demonstrates benefits of hybrid architecture
-app.get('/api/admin/analytics', async (req, res) => {
-  try {
-    const startTime = Date.now();
-    
-    // PostgreSQL - Optimized for user analytics and aggregations
-    const userStats = await pool.query(`
-      SELECT 
-        COUNT(*) as total_users,
-        AVG(points) as avg_points,
-        MAX(points) as max_points,
-        MIN(points) as min_points
-      FROM users
-    `);
-    
-    // MongoDB - Optimized for content analytics
-    const recipeStats = await Recipe.aggregate([
-      { $match: { isActive: 1 } },
-      {
-        $group: {
-          _id: null,
-          totalRecipes: { $sum: 1 },
-          avgUpvotes: { $avg: "$upvotes" },
-          avgDownvotes: { $avg: "$downvotes" },
-          totalVotes: { $sum: { $add: ["$upvotes", "$downvotes"] } },
-          categories: { $push: "$category" }
-        }
-      }
-    ]);
-    
-    const categoryStats = await Recipe.aggregate([
-      { $match: { isActive: 1 } },
-      { $group: { _id: "$category", count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]);
-    
-    const queryTime = Date.now() - startTime;
-
-    // Clean up unwanted fields
-    let cleanRecipeStats = {};
-    if (recipeStats[0]) {
-      const { _id, ...rest } = recipeStats[0];
-      cleanRecipeStats = rest;
-    }
-
-    const cleanCategoryStats = categoryStats.map(({ _id }) => ({
-      category: _id 
-    }));
-
-    res.json({
-      success: true,
-      performance: {
-        queryTime: `${queryTime}ms`,
-        architecture: "Hybrid PostgreSQL + MongoDB",
-        benefits: [
-          "PostgreSQL: ACID compliance for user data aggregations",
-          "MongoDB: Flexible aggregation pipeline for content analytics",
-          "Optimal performance: Each DB handles what it does best"
-        ]
-      },
-      userAnalytics: userStats.rows[0],
-      recipeAnalytics: cleanRecipeStats,
-      categoryBreakdown: cleanCategoryStats,
-      technicalNotes: {
-        sqlComplexity: "Simple aggregation queries on normalized user data",
-        nosqlComplexity: "Complex aggregation pipeline on denormalized recipe documents",
-        reasoning: "Users need ACID compliance, Recipes need flexible schema and fast reads"
-      }
-    });
-  } catch (error) {
-    console.error('Error getting analytics:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get analytics',
-      details: error.message
-    });
-  }
-});
-
-
-// Clean up duplicate votes (admin/maintenance endpoint)
-app.post('/api/admin/cleanup-votes', async (req, res) => {
-  try {
-    const recipes = await Recipe.find({});
-    let totalCleaned = 0;
-    let recipesAffected = 0;
-
-    for (const recipe of recipes) {
-      const userVoteCounts = {};
-      let hasDuplicates = false;
-
-      // Count votes per user
-      recipe.votedUsers.forEach(vote => {
-        if (userVoteCounts[vote.email]) {
-          userVoteCounts[vote.email]++;
-          hasDuplicates = true;
-        } else {
-          userVoteCounts[vote.email] = 1;
-        }
-      });
-
-      if (hasDuplicates) {
-        console.log(`Cleaning duplicates in recipe: ${recipe.title}`);
-        
-        // Keep only the last vote for each user
-        const cleanedVotes = [];
-        const processedUsers = new Set();
-
-        // Process votes in reverse order to keep the most recent
-        for (let i = recipe.votedUsers.length - 1; i >= 0; i--) {
-          const vote = recipe.votedUsers[i];
-          if (!processedUsers.has(vote.email)) {
-            cleanedVotes.unshift(vote);
-            processedUsers.add(vote.email);
-          } else {
-            totalCleaned++;
-          }
-        }
-
-        // Recalculate vote counts
-        const upvotes = cleanedVotes.filter(v => v.voteType === 'upvote').length;
-        const downvotes = cleanedVotes.filter(v => v.voteType === 'downvote').length;
-
-        // Update the recipe
-        await Recipe.updateOne(
-          { _id: recipe._id },
-          {
-            votedUsers: cleanedVotes,
-            upvotes: upvotes,
-            downvotes: downvotes
-          }
-        );
-
-        recipesAffected++;
-      }
-    }
-
-    res.json({
-      success: true,
-      message: `Cleanup completed! Removed ${totalCleaned} duplicate votes from ${recipesAffected} recipes.`,
-      duplicatesRemoved: totalCleaned,
-      recipesAffected: recipesAffected
-    });
-  } catch (error) {
-    console.error('Error during vote cleanup:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to cleanup votes',
-      details: error.message
-    });
-  }
-});
-
-// Get all deleted/inactive comments (admin)
-app.get('/api/admin/comments/deleted', async (req, res) => {
-  try {
-    const deletedComments = await Comment.find({ isActive: 0 })
-      .populate('recipeId', 'title')
-      .sort({ deletedAt: -1 });
-    
-    res.json({
-      success: true,
-      count: deletedComments.length,
-      comments: deletedComments
-    });
-  } catch (error) {
-    console.error('Error fetching deleted comments:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to fetch deleted comments',
-      details: error.message 
-    });
-  }
-});
-
-// Restore a deleted comment (admin)
-app.patch('/api/admin/comments/:commentId/restore', async (req, res) => {
-  try {
-    const comment = await Comment.findOneAndUpdate(
-      { _id: req.params.commentId, isActive: 0 },
-      { 
-        isActive: 1,
-        deletedAt: null,
-        updatedAt: new Date()
-      },
-      { new: true }
-    );
-    
-    if (!comment) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'Deleted comment not found' 
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'Comment restored successfully!',
-      comment: {
-        id: comment._id,
-        content: comment.content,
-        author: comment.authorName
-      }
-    });
-  } catch (error) {
-    console.error('Error restoring comment:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to restore comment',
-      details: error.message 
-    });
-  }
-});
-
-// Get all comments for admin (active and inactive)
-app.get('/api/admin/comments/all', async (req, res) => {
-  try {
-    const allComments = await Comment.find()
-      .populate('recipeId', 'title')
-      .sort({ createdAt: -1 });
-    
-    const activeCount = allComments.filter(c => c.isActive === 1).length;
-    const deletedCount = allComments.filter(c => c.isActive === 0).length;
-    
-    res.json({
-      success: true,
-      totalCount: allComments.length,
-      activeCount,
-      deletedCount,
-      comments: allComments
-    });
-  } catch (error) {
-    console.error('Error fetching all comments:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to fetch all comments',
-      details: error.message 
-    });
-  }
-});
-
-// Get all deleted/inactive recipes
-app.get('/api/admin/recipes/deleted', async (req, res) => {
-  try {
-    const deletedRecipes = await Recipe.find({ isActive: 0 }).sort({ deletedAt: -1 });
-    res.json({
-      success: true,
-      count: deletedRecipes.length,
-      recipes: deletedRecipes
-    });
-  } catch (error) {
-    console.error('Error fetching deleted recipes:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to fetch deleted recipes',
-      details: error.message 
-    });
-  }
-});
-
-// Restore a deleted recipe
-app.patch('/api/admin/recipes/:id/restore', async (req, res) => {
-  try {
-    const recipe = await Recipe.findOneAndUpdate(
-      { _id: req.params.id, isActive: 0 },
-      { 
-        isActive: 1,
-        deletedAt: null,
-        updatedAt: new Date()
-      },
-      { new: true }
-    );
-    
-    if (!recipe) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'Deleted recipe not found' 
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'Recipe restored successfully!',
-      recipe: {
-        id: recipe._id,
-        title: recipe.title,
-        author: recipe.author
-      }
-    });
-  } catch (error) {
-    console.error('Error restoring recipe:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to restore recipe',
-      details: error.message 
-    });
-  }
-});
-
-// Get all recipes (active and inactive) for admin
-app.get('/api/admin/recipes/all', async (req, res) => {
-  try {
-    const allRecipes = await Recipe.find().sort({ createdAt: -1 });
-    const activeCount = allRecipes.filter(r => r.isActive === 1).length;
-    const deletedCount = allRecipes.filter(r => r.isActive === 0).length;
-    
-    res.json({
-      success: true,
-      totalCount: allRecipes.length,
-      activeCount,
-      deletedCount,
-      recipes: allRecipes
-    });
-  } catch (error) {
-    console.error('Error fetching all recipes:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to fetch all recipes',
-      details: error.message 
-    });
-  }
-});
-
 // ==================== STATIC ROUTES ====================
 
 // Serve ingredients manager HTML page
@@ -3207,59 +3049,3 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// Route to create a new user
-app.post('/api/users', async (req, res) => {
-  const { username, email } = req.body;
-  try {
-    const result = await pool.query(
-      'INSERT INTO users (username, email, password, point) VALUES ($1, $2, $3, $4) RETURNING *',
-      [username, email, 'defaultpassword', 0]
-    );
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Admin endpoint to recalculate all user points based on their recipes' net votes
-app.post('/api/admin/recalculate-points', async (req, res) => {
-  try {
-    // Get all users
-    const usersResult = await pool.query('SELECT email FROM users');
-    const users = usersResult.rows;
-    
-    let updatedCount = 0;
-    const results = [];
-
-    for (const user of users) {
-      try {
-        const newPoints = await updateAuthorPoints(user.email);
-        results.push({
-          email: user.email,
-          points: newPoints
-        });
-        updatedCount++;
-      } catch (error) {
-        console.error(`Failed to update points for ${user.email}:`, error);
-        results.push({
-          email: user.email,
-          error: error.message
-        });
-      }
-    }
-
-    res.json({
-      success: true,
-      message: `Recalculated points for ${updatedCount} users`,
-      totalUsers: users.length,
-      results: results
-    });
-  } catch (error) {
-    console.error('Error recalculating points:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to recalculate points',
-      details: error.message
-    });
-  }
-});

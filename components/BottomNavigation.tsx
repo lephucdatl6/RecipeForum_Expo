@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useCart } from '../contexts/CartContext';
 
 interface BottomNavigationProps {
-  activeTab: 'profile' | 'forum' | 'bookmarks' | 'notifications' | 'cart';
+  activeTab: 'profile' | 'forum' | 'bookmarks' | 'orders' | 'cart';
   userData?: any;
 }
 
@@ -35,9 +35,9 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
           params: navigationParams
         });
         break;
-      case 'notifications':
+      case 'orders':
         router.replace({
-          pathname: './NotificationsScreen',
+          pathname: './OrderTrackingScreen',
           params: navigationParams
         });
         break;
@@ -97,12 +97,12 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
 
       <TouchableOpacity 
         style={styles.tab} 
-        onPress={() => navigateToTab('notifications')}
+        onPress={() => navigateToTab('orders')}
       >
         <View style={styles.iconContainer}>
-          <Text style={[styles.icon, activeTab === 'notifications' && styles.activeIcon]}>🔔</Text>
+          <Text style={[styles.icon, activeTab === 'orders' && styles.activeIcon]}>📦</Text>
         </View>
-        <Text style={[styles.label, activeTab === 'notifications' && styles.activeLabel]}>Notifications</Text>
+        <Text style={[styles.label, activeTab === 'orders' && styles.activeLabel]}>Orders</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 
