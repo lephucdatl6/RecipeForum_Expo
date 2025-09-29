@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -133,7 +134,10 @@ export default function CheckoutScreen() {
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Unable to load checkout data</Text>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Go Back</Text>
+            <View style={styles.backButtonContent}>
+              <Ionicons name="chevron-back" size={18} color="white" />
+              <Text style={styles.backButtonText}>Go Back</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </>
@@ -239,7 +243,10 @@ export default function CheckoutScreen() {
               style={styles.backButtonHeader}
               onPress={() => router.back()}
             >
-              <Text style={styles.backButtonHeaderText}>← Back to Cart</Text>
+              <View style={styles.backButtonHeaderContent}>
+                <Ionicons name="chevron-back" size={18} color="white" />
+                <Text style={styles.backButtonHeaderText}>Back to Cart</Text>
+              </View>
             </TouchableOpacity>
           ),
         }}
@@ -308,9 +315,13 @@ export default function CheckoutScreen() {
                     : 'Select discount option'
                   }
                 </Text>
-                <Text style={styles.dropdownArrow}>
-                  {isDiscountDropdownOpen ? '▲' : '▼'}
-                </Text>
+                <View style={styles.dropdownArrow}>
+                  <Ionicons 
+                    name={isDiscountDropdownOpen ? 'chevron-up' : 'chevron-down'} 
+                    size={16} 
+                    color="#666" 
+                  />
+                </View>
               </TouchableOpacity>
 
               {/* Dropdown Menu */}
@@ -711,6 +722,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
   },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   backButtonText: {
     color: 'white',
     fontSize: 16,
@@ -719,6 +735,11 @@ const styles = StyleSheet.create({
   backButtonHeader: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+  },
+  backButtonHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   backButtonHeaderText: {
     color: 'white',

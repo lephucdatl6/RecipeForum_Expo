@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -715,11 +716,13 @@ export default function PostDetailScreen() {
   const getDateInfo = (recipe: Recipe) => {
     return {
       posted: {
-        label: '📅 Posted:',
+        label: 'Posted:',
+        icon: 'calendar-outline',
         value: formatDate(recipe.created_at)
       },
       edited: recipe.updatedAt ? {
-        label: '✏️ Last edited:',
+        label: 'Last edited:',
+        icon: 'create-outline',
         value: formatDate(recipe.updatedAt)
       } : null
     };
@@ -889,7 +892,44 @@ export default function PostDetailScreen() {
   // Smart quantity conversion for shopping cart with realistic package sizes
   const getShoppingQuantity = async (amount: number, unit: string, ingredientId: number): Promise<number> => {
     try {
-      // Get ingredient package information
+      // For countable units, handle them directly first
+      const unitLower = unit.toLowerCase();
+      if (unitLower === 'cloves' || unitLower === 'pcs' || 
+          unitLower === 'slices' || unitLower === 'bunch') {
+        // For countable units, try to get package info to be smart about it
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/ingredients/${ingredientId}`);
+          const data = await response.json();
+          
+          if (data.success) {
+            const ingredient = data.ingredient;
+            const packageSize = parseFloat(ingredient.package_size) || 1;
+            const packageUnit = ingredient.package_unit || 'piece';
+            
+            // If package is also countable, calculate packages needed
+            const packageUnitLower = packageUnit.toLowerCase();
+            if (packageUnitLower === 'pcs' || packageUnitLower === 'bunch' || 
+                packageUnitLower === 'cloves' || packageUnitLower === 'slices') {
+              // Use a reasonable conversion factor
+              let conversionFactor = 1;
+              if (unitLower === 'cloves' && packageUnitLower === 'bunch') {
+                conversionFactor = 8; // Assume 1 bunch is 8 cloves
+              }
+              // For same units, conversionFactor = 1
+              
+              const packagesNeeded = Math.ceil(amount / (packageSize * conversionFactor));
+              return Math.max(1, packagesNeeded);
+            }
+          }
+        } catch (error) {
+          console.log('Could not get package info for countable unit, using recipe amount');
+        }
+        
+        // Fallback for countable units: use recipe amount
+        return Math.max(1, Math.ceil(amount));
+      }
+      
+      // Get ingredient package information for non-countable units
       const response = await fetch(`${API_BASE_URL}/api/ingredients/${ingredientId}`);
       const data = await response.json();
       
@@ -903,7 +943,7 @@ export default function PostDetailScreen() {
       const packageUnit = ingredient.package_unit || 'piece';
       
       // Special handling for ingredients sold by pieces (pcs)
-      if (packageUnit.toLowerCase().includes('pcs') || packageUnit.toLowerCase().includes('piece')) {
+      if (packageUnit.toLowerCase() === 'pcs') {
         // Calculate how many packages needed based on package size
         // For example if recipe needs 10 eggs and package has 12 eggs, buy 1 package
         const packagesNeeded = Math.ceil(amount / packageSize);
@@ -936,21 +976,21 @@ export default function PostDetailScreen() {
     const unitLower = unit.toLowerCase();
     
     // Weight conversions to grams
-    if (unitLower.includes('kg') || unitLower.includes('kilogram')) return amount * 1000; // kg → g
-    if (unitLower.includes('g') && !unitLower.includes('kg')) return amount; // g → g
-    if (unitLower.includes('oz') || unitLower.includes('ounce')) return amount * 28.35; // oz → g (approx)
-    if (unitLower.includes('lb') || unitLower.includes('pound')) return amount * 453.6; // lb → g (approx)
+    if (unitLower === 'kg') return amount * 1000; // kg → g
+    if (unitLower === 'grams') return amount; // grams → g
+    if (unitLower === 'oz') return amount * 28.35; // oz → g (approx)
+    if (unitLower === 'lbs') return amount * 453.6; // lbs → g (approx)
     
     // Volume conversions to ml
-    if (unitLower.includes('l') && !unitLower.includes('ml')) return amount * 1000; // liters to ml
-    if (unitLower.includes('ml')) return amount; // ml → ml
-    if (unitLower.includes('cup')) return amount * 240; // cup → ml (approximate)
-    if (unitLower.includes('tbsp') || unitLower.includes('tablespoon')) return amount * 15; // tbsp → ml
-    if (unitLower.includes('tsp') || unitLower.includes('teaspoon')) return amount * 5; // tsp → ml
+    if (unitLower === 'liters') return amount * 1000; // liters to ml
+    if (unitLower === 'ml') return amount; // ml → ml
+    if (unitLower === 'cups') return amount * 240; // cups → ml (approximate)
+    if (unitLower === 'tbsp') return amount * 15; // tbsp → ml
+    if (unitLower === 'tsp') return amount * 5; // tsp → ml
     
     // Countable items
-    if (unitLower.includes('piece') || unitLower.includes('pcs') || 
-        unitLower.includes('item') || unitLower.includes('whole')) return amount;
+    if (unitLower === 'pcs' || unitLower === 'cloves' || 
+        unitLower === 'slices' || unitLower === 'bunch') return amount;
     
     return null;
   };
@@ -961,27 +1001,21 @@ export default function PostDetailScreen() {
       const unitLower = unit.toLowerCase();
       
       // Weight units
-      if (unitLower.includes('kg') || unitLower.includes('kilogram') ||
-          unitLower.includes('g') && !unitLower.includes('kg') ||
-          unitLower.includes('oz') || unitLower.includes('ounce') ||
-          unitLower.includes('lb') || unitLower.includes('pound')) {
+      if (unitLower === 'kg' || unitLower === 'grams' ||
+          unitLower === 'oz' || unitLower === 'lbs') {
         return 'weight';
       }
       
       // Volume units
-      if (unitLower.includes('l') && !unitLower.includes('ml') ||
-          unitLower.includes('ml') || unitLower.includes('cup') ||
-          unitLower.includes('tbsp') || unitLower.includes('tablespoon') ||
-          unitLower.includes('tsp') || unitLower.includes('teaspoon')) {
+      if (unitLower === 'liters' || unitLower === 'ml' || 
+          unitLower === 'cups' || unitLower === 'tbsp' || 
+          unitLower === 'tsp') {
         return 'volume';
       }
       
       // Countable units
-      if (unitLower.includes('piece') || unitLower.includes('pcs') ||
-          unitLower.includes('item') || unitLower.includes('whole') ||
-          unitLower.includes('egg') || unitLower.includes('slice') ||
-          unitLower.includes('bottle') || unitLower.includes('can') ||
-          unitLower.includes('pack') || unitLower.includes('bunch')) {
+      if (unitLower === 'pcs' || unitLower === 'cloves' ||
+          unitLower === 'slices' || unitLower === 'bunch') {
         return 'count';
       }
       
@@ -1002,40 +1036,34 @@ export default function PostDetailScreen() {
     const packageUnitLower = packageUnit?.toLowerCase() || '';
     
     // Check if package is sold by pieces first
-    if (packageUnitLower.includes('pcs') || packageUnitLower.includes('piece')) {
+    if (packageUnitLower === 'pcs') {
       const defaultPackageSize = 6;
       return Math.max(1, Math.ceil(amount / defaultPackageSize));
     }
     
     // Countable units - use recipe amount (makes sense for pieces, etc.)
-    if (unitLower.includes('piece') || unitLower.includes('pcs') || 
-        unitLower.includes('item') || unitLower.includes('egg') ||
-        unitLower.includes('whole') || unitLower.includes('bottle') ||
-        unitLower.includes('can') || unitLower.includes('pack') ||
-        unitLower.includes('slice')) {
+    if (unitLower === 'pcs' || unitLower === 'cloves' ||
+        unitLower === 'slices') {
       return Math.ceil(amount); // Round up to ensure enough
     }
     
     // Weight/volume units - assume 1 package will cover recipe needs
-    // This handles cases like "1 cup fish" or "500g flour"
-    if (unitLower.includes('gram') || unitLower.includes('kg') ||
-        unitLower.includes('cup') || unitLower.includes('tablespoon') ||
-        unitLower.includes('tbsp') || unitLower.includes('teaspoon') ||
-        unitLower.includes('tsp') || unitLower.includes('ml') ||
-        unitLower.includes('liter') || unitLower.includes('l') ||
-        unitLower.includes('ounce') || unitLower.includes('oz') ||
-        unitLower.includes('pound') || unitLower.includes('lb')) {
+    // This handles cases like "1 cups fish" or "500 grams flour"
+    if (unitLower === 'grams' || unitLower === 'kg' ||
+        unitLower === 'cups' || unitLower === 'tbsp' ||
+        unitLower === 'tsp' || unitLower === 'ml' ||
+        unitLower === 'liters' || unitLower === 'oz' ||
+        unitLower === 'lbs') {
       
       // For very large amounts, might need multiple packages
-      if (amount > 50) { // Increased threshold to be more reasonable
+      if (amount > 50) {
         return Math.ceil(amount / 20); // More conservative estimate
       }
       return 1; // Default: buy 1 package/container
     }
     
-    // For unusual units like "bunch", "head", etc. - use recipe amount
-    if (unitLower.includes('bunch') || unitLower.includes('head') ||
-        unitLower.includes('clove') || unitLower.includes('stalk')) {
+    // For bunch units - use recipe amount
+    if (unitLower === 'bunch') {
       return Math.ceil(amount);
     }
     
@@ -1116,12 +1144,15 @@ export default function PostDetailScreen() {
         <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <Text style={styles.backButtonText}>← Back</Text>
+            <View style={styles.backButtonContent}>
+              <Ionicons name="chevron-back" size={20} color="#007AFF" />
+              <Text style={styles.backButtonText}>Back</Text>
+            </View>
           </TouchableOpacity>
           <Text style={styles.title}>Post Details</Text>
           <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
             <View style={styles.cartIconContainer}>
-              <Text style={styles.cartIcon}>🛒</Text>
+              <Ionicons name="cart-outline" size={24} color="#666" />
               {cartItemCount > 0 && (
                 <View style={styles.cartBadge}>
                   <Text style={styles.cartBadgeText}>
@@ -1150,12 +1181,15 @@ export default function PostDetailScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <Text style={styles.backButtonText}>← Back</Text>
+            <View style={styles.backButtonContent}>
+              <Ionicons name="chevron-back" size={20} color="#007AFF" />
+              <Text style={styles.backButtonText}>Back</Text>
+            </View>
           </TouchableOpacity>
           <Text style={styles.title}>Post Details</Text>
           <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
             <View style={styles.cartIconContainer}>
-              <Text style={styles.cartIcon}>🛒</Text>
+              <Ionicons name="cart-outline" size={24} color="#666" />
               {cartItemCount > 0 && (
                 <View style={styles.cartBadge}>
                   <Text style={styles.cartBadgeText}>
@@ -1189,19 +1223,28 @@ export default function PostDetailScreen() {
 
             <View style={styles.metaInfo}>
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>⏱️ Cooking Time:</Text>
+                <View style={styles.metaLabelContainer}>
+                  <Ionicons name="time-outline" size={16} color="#666" />
+                  <Text style={styles.metaLabel}>Cooking Time:</Text>
+                </View>
                 <Text style={styles.metaValue}>{recipe.cookingTime} minutes</Text>
               </View>
               {recipe.difficulty && (
                 <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>🍽️ Difficulty:</Text>
+                  <View style={styles.metaLabelContainer}>
+                    <Ionicons name="restaurant-outline" size={16} color="#666" />
+                    <Text style={styles.metaLabel}>Difficulty:</Text>
+                  </View>
                   <Text style={[styles.metaValue, styles.difficultyValue, { color: getDifficultyColor(recipe.difficulty) }]}>
                     {recipe.difficulty}
                   </Text>
                 </View>
               )}
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>👤 Author:</Text>
+                <View style={styles.metaLabelContainer}>
+                  <Ionicons name="person-outline" size={16} color="#666" />
+                  <Text style={styles.metaLabel}>Author:</Text>
+                </View>
                 <View style={styles.authorContainer}>
                   <View style={styles.authorProfileImageContainer}>
                     {authorProfileImage ? (
@@ -1223,14 +1266,20 @@ export default function PostDetailScreen() {
                 </View>
               </View>
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>{getDateInfo(recipe).posted.label}</Text>
+                <View style={styles.metaLabelContainer}>
+                  <Ionicons name="calendar-outline" size={16} color="#666" />
+                  <Text style={styles.metaLabel}>{getDateInfo(recipe).posted.label}</Text>
+                </View>
                 <Text style={styles.metaValue}>
                   {getDateInfo(recipe).posted.value}
                 </Text>
               </View>
               {getDateInfo(recipe).edited && (
                 <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>{getDateInfo(recipe).edited!.label}</Text>
+                  <View style={styles.metaLabelContainer}>
+                    <Ionicons name="create-outline" size={16} color="#666" />
+                    <Text style={styles.metaLabel}>{getDateInfo(recipe).edited!.label}</Text>
+                  </View>
                   <Text style={[styles.metaValue, styles.editedText]}>
                     {getDateInfo(recipe).edited!.value}
                   </Text>
@@ -1309,7 +1358,11 @@ export default function PostDetailScreen() {
                     style={[styles.voteButton, recipe.userVote === 'upvote' && styles.voteButtonActive]}
                     onPress={() => handleVote('upvote')}
                   >
-                    <Text style={[styles.voteIcon, recipe.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
+                    <Ionicons 
+                      name="chevron-up" 
+                      size={18} 
+                      color={recipe.userVote === 'upvote' ? 'white' : '#666'} 
+                    />
                   </TouchableOpacity>
                   
                   <View style={styles.netVotes}>
@@ -1322,13 +1375,17 @@ export default function PostDetailScreen() {
                     style={[styles.voteButton, recipe.userVote === 'downvote' && styles.voteButtonActive]}
                     onPress={() => handleVote('downvote')}
                   >
-                    <Text style={[styles.voteIcon, recipe.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
+                    <Ionicons 
+                      name="chevron-down" 
+                      size={18} 
+                      color={recipe.userVote === 'downvote' ? 'white' : '#666'} 
+                    />
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.votingSection}>
                   <View style={[styles.voteButton, { opacity: 0.5 }]}>
-                    <Text style={styles.voteIcon}>▲</Text>
+                    <Ionicons name="chevron-up" size={18} color="#999" />
                   </View>
                   
                   <View style={styles.netVotes}>
@@ -1338,14 +1395,14 @@ export default function PostDetailScreen() {
                   </View>
                   
                   <View style={[styles.voteButton, { opacity: 0.5 }]}>
-                    <Text style={styles.voteIcon}>▼</Text>
+                    <Ionicons name="chevron-down" size={18} color="#999" />
                   </View>
                 </View>
               )}
 
               {/* Comment Count */}
               <View style={styles.commentSection}>
-                <Text style={styles.commentCountIcon}>💬</Text>
+                <Ionicons name="chatbubble-outline" size={16} color="#666" />
                 <Text style={styles.commentCountText}>{commentStats.totalComments}</Text>
               </View>
 
@@ -1354,9 +1411,11 @@ export default function PostDetailScreen() {
                 style={styles.bookmarkButton}
                 onPress={() => handleBookmark(recipe.id?.toString() || '')}
               >
-                <Text style={styles.bookmarkIcon}>
-                  {recipe.isBookmarked ? '🌟' : '⭐'}
-                </Text>
+                <Ionicons 
+                  name={recipe.isBookmarked ? "star" : "star-outline"} 
+                  size={20} 
+                  color={recipe.isBookmarked ? "#FFD700" : "#666"} 
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -1515,6 +1574,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   backButtonText: {
     fontSize: 16,
     color: '#007AFF',
@@ -1535,9 +1599,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  cartIcon: {
-    fontSize: 24,
   },
   cartBadge: {
     position: 'absolute',
@@ -1669,6 +1730,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     fontWeight: '500',
+    marginLeft: 6,
+  },
+  metaLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   metaValue: {
     fontSize: 16,
@@ -1881,14 +1947,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  commentCountIcon: {
-    fontSize: 16,
-    marginRight: 6,
-  },
   commentCountText: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
+    marginLeft: 6,
   },
   
   // Comments Section Styles
@@ -2137,9 +2200,5 @@ const styles = StyleSheet.create({
     width: 50,
     height: 40,                  
     alignSelf: 'flex-start',   
-  },
-  bookmarkIcon: {
-    fontSize: 16,
-    color: '#666',
   },
 });

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, Image, Keyboard, Modal, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
@@ -617,13 +618,22 @@ export default function RecipesForumScreen() {
         
         <View style={styles.cardFooter}>
           <View style={styles.metaInfo}>
-            <Text style={styles.cookingTime}>⏱️ {item.cookingTime} min</Text>
+            <View style={styles.metaInfoItem}>
+              <Ionicons name="time-outline" size={14} color="#666" />
+              <Text style={styles.metaText}>{item.cookingTime} min</Text>
+            </View>
             {item.difficulty && (
-              <Text style={[styles.difficulty, { color: getDifficultyColor(item.difficulty) }]}>
-                🎯 {item.difficulty}
-              </Text>
+              <View style={styles.metaInfoItem}>
+                <Ionicons name="restaurant-outline" size={14} color={getDifficultyColor(item.difficulty)} />
+                <Text style={[styles.metaText, { color: getDifficultyColor(item.difficulty), fontWeight: 'bold' }]}>
+                  {item.difficulty}
+                </Text>
+              </View>
             )}
-            <Text style={styles.author}>👤 {item.author}</Text>
+            <View style={styles.metaInfoItem}>
+              <Ionicons name="person-outline" size={14} color="#666" />
+              <Text style={styles.metaText}>{item.author}</Text>
+            </View>
           </View>
           <Text style={styles.postDate}>{formatDate(item.created_at)}</Text>
         </View>
@@ -643,7 +653,11 @@ export default function RecipesForumScreen() {
               handleVote(item.id?.toString() || '', 'upvote');
             }}
           >
-            <Text style={[styles.voteIcon, item.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
+            <Ionicons 
+              name="chevron-up" 
+              size={16} 
+              color={item.userVote === 'upvote' ? 'white' : '#666'} 
+            />
           </TouchableOpacity>
           
           <View style={styles.netVotes}>
@@ -659,13 +673,17 @@ export default function RecipesForumScreen() {
               handleVote(item.id?.toString() || '', 'downvote');
             }}
           >
-            <Text style={[styles.voteIcon, item.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
+            <Ionicons 
+              name="chevron-down" 
+              size={16} 
+              color={item.userVote === 'downvote' ? 'white' : '#666'} 
+            />
           </TouchableOpacity>
         </View>
 
         {/* Comment Count Section */}
         <View style={styles.commentSection}>
-          <Text style={styles.commentCountIcon}>💬</Text>
+          <Ionicons name="chatbubble-outline" size={16} color="#666" />
           <Text style={styles.commentCountText}>{item.commentCount || 0}</Text>
         </View>
 
@@ -677,9 +695,11 @@ export default function RecipesForumScreen() {
             handleBookmark(item.id?.toString() || '');
           }}
         >
-          <Text style={styles.bookmarkIcon}>
-            {item.isBookmarked ? '🌟' : '⭐'}
-          </Text>
+          <Ionicons 
+            name={item.isBookmarked ? "star" : "star-outline"} 
+            size={20} 
+            color={item.isBookmarked ? "#FFD700" : "#666"} 
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -697,7 +717,7 @@ export default function RecipesForumScreen() {
     
     return (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyStateText}>📝</Text>
+        <Ionicons name="document-text-outline" size={48} color="#666" />
         <Text style={styles.emptyStateTitle}>No recipes yet</Text>
         <Text style={styles.emptyStateSubtitle}>Be the first to share your amazing recipe!</Text>
       </View>
@@ -734,7 +754,11 @@ export default function RecipesForumScreen() {
             <Text style={styles.sortButtonTextInline}>
               {sortOptions.find(option => option.key === sortBy)?.label}
             </Text>
-            <Text style={styles.sortArrowInline}>{showSortDropdown ? '▲' : '▼'}</Text>
+            <Ionicons 
+              name={showSortDropdown ? 'chevron-up' : 'chevron-down'} 
+              size={12} 
+              color="#ffffff" 
+            />
           </TouchableOpacity>
         </View>
         
@@ -799,7 +823,7 @@ export default function RecipesForumScreen() {
 
         {/* Floating Action Button */}
         <TouchableOpacity style={styles.fab} onPress={handleCreatePost}>
-          <Text style={styles.fabText}>➕</Text>
+          <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
 
         <BottomNavigation activeTab="forum" userData={userData} />
@@ -886,10 +910,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginRight: 4,
   },
-  sortArrowInline: {
-    fontSize: 10,
-    color: '#ffffff',
-  },
   resultsContainer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 20,
@@ -961,6 +981,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  metaInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+  },
   cookingTime: {
     fontSize: 12,
     color: '#666',
@@ -985,10 +1015,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 100,
-  },
-  emptyStateText: {
-    fontSize: 48,
-    marginBottom: 16,
   },
   emptyStateTitle: {
     fontSize: 20,
@@ -1019,10 +1045,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
     elevation: 8,
-  },
-  fabText: {
-    fontSize: 24,
-    color: 'white',
   },
   votingSection: {
     flexDirection: 'row',
@@ -1066,14 +1088,6 @@ const styles = StyleSheet.create({
   voteButtonActive: {
     backgroundColor: '#ff8c00',
   },
-  voteIcon: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: 'bold',
-  },
-  voteIconActive: {
-    color: 'white',
-  },
   netVotes: {
     paddingVertical: 4,
     paddingHorizontal: 8,        
@@ -1093,14 +1107,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  commentCountIcon: {
-    fontSize: 16,
-    marginRight: 6,
-  },
   commentCountText: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
+    marginLeft: 6,
   },
   sortContainer: {
     backgroundColor: '#ffffff',
@@ -1216,9 +1227,5 @@ const styles = StyleSheet.create({
     width: 50,
     height: 40,                  
     alignSelf: 'flex-start',   
-  },
-  bookmarkIcon: {
-    fontSize: 16,
-    color: '#666',
   },
 });

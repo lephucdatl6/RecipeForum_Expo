@@ -371,8 +371,8 @@ app.put('/api/users/profile/:email', async (req, res) => {
           { authorName: username }
         );
 
-        console.log(`Updated author name in ${mongoUpdateResult.modifiedCount} recipes`);
-        console.log(`Updated authorName in ${commentUsernameUpdateResult.modifiedCount} comments`);
+        // console.log(`Updated author name in ${mongoUpdateResult.modifiedCount} recipes`);
+        // console.log(`Updated authorName in ${commentUsernameUpdateResult.modifiedCount} comments`);
       } catch (mongoErr) {
         console.error('Error updating MongoDB recipes and comments username:', mongoErr);
       }
@@ -1736,8 +1736,42 @@ app.get('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// Helper function to update author points based on net votes
-async function updateAuthorPoints(authorEmail) {
+// Function to update author points based on incremental vote change
+async function updateAuthorPointsIncremental(authorEmail, voteChange) {
+  try {
+    // voteChange: +1 for new upvote, -1 for new downvote, 0 for no net change
+    const pointsChange = voteChange * 150; // Each net vote is worth 150 points for demo
+    
+    if (pointsChange === 0) {
+      return; // No change needed
+    }
+
+    // Get current user points from PostgreSQL
+    const currentUserQuery = 'SELECT points FROM users WHERE email = $1';
+    const currentUserResult = await pool.query(currentUserQuery, [authorEmail]);
+    
+    if (currentUserResult.rows.length === 0) {
+      console.error(`User not found for email: ${authorEmail}`);
+      return;
+    }
+
+    const currentPoints = currentUserResult.rows[0].points || 0;
+    const newPoints = Math.max(0, currentPoints + pointsChange); // Points can't go negative
+
+    // Update user points incrementally
+    const updateQuery = 'UPDATE users SET points = $1 WHERE email = $2';
+    await pool.query(updateQuery, [newPoints, authorEmail]);
+
+    // console.log(`Updated points for ${authorEmail}: ${currentPoints} + ${pointsChange} = ${newPoints} points`);
+    return newPoints;
+  } catch (error) {
+    console.error('Error updating author points incrementally:', error);
+    throw error;
+  }
+}
+
+// Helper function to recalculate total author points
+async function recalculateAuthorPoints(authorEmail) {
   try {
     // Get all recipes by this author
     const authorRecipes = await Recipe.find({ 
@@ -1746,25 +1780,28 @@ async function updateAuthorPoints(authorEmail) {
     });
 
     // Calculate total net votes across all their recipes
-    let totalPoints = 0;
+    let totalVotePoints = 0;
     authorRecipes.forEach(recipe => {
       const netVotes = (recipe.upvotes || 0) - (recipe.downvotes || 0);
       const points = netVotes * 150; // Net vote is set to 150 points for demo
-      totalPoints += points;
-      // console.log(`Recipe "${recipe.title}": ${recipe.upvotes || 0} upvotes - ${recipe.downvotes || 0} downvotes = ${netVotes} net votes = ${points} points`);
+      totalVotePoints += points;
     });
 
-    // Ensure points can't go negative
-    totalPoints = Math.max(0, totalPoints);
+    // Get current user points from PostgreSQL
+    const currentUserQuery = 'SELECT points FROM users WHERE email = $1';
+    const currentUserResult = await pool.query(currentUserQuery, [authorEmail]);
+    
+    if (currentUserResult.rows.length === 0) {
+      console.error(`User not found for email: ${authorEmail}`);
+      return;
+    }
 
-    // Update user points in PostgreSQL (using 'points' column name)
-    const updateQuery = 'UPDATE users SET points = $1 WHERE email = $2';
-    await pool.query(updateQuery, [totalPoints, authorEmail]);
-
-    // console.log(`Updated points for ${authorEmail}: ${totalPoints} points`);
-    return totalPoints;
+    const currentPoints = currentUserResult.rows[0].points || 0;
+    // console.log(`${authorEmail}: Current points: ${currentPoints}, Vote-based points: ${totalVotePoints}`);
+    
+    return currentPoints;
   } catch (error) {
-    console.error('Error updating author points:', error);
+    console.error('Error recalculating author points:', error);
     throw error;
   }
 }
@@ -1820,7 +1857,6 @@ app.post('/api/recipes/:id/vote', async (req, res) => {
       // If user had any votes, use the most recent vote type
       const lastVote = allUserVotes[allUserVotes.length - 1];
       if (lastVote && lastVote.voteType !== voteType) {
-        // Re-add their last vote for clean state
         recipe.votedUsers.push({ email: userEmail, voteType: lastVote.voteType });
         if (lastVote.voteType === 'upvote') {
           recipe.upvotes += 1;
@@ -1863,12 +1899,12 @@ app.post('/api/recipes/:id/vote', async (req, res) => {
 
     await recipe.save();
 
-    // Update author points based on net votes
+    // Update author points incrementally based on the net change in votes
     try {
-      await updateAuthorPoints(recipe.authorEmail);
+      const netVoteChange = upvoteChange - downvoteChange;
+      await updateAuthorPointsIncremental(recipe.authorEmail, netVoteChange);
     } catch (pointError) {
-      console.error('Error updating author points:', pointError);
-      // Don't fail the vote if point update fails
+      console.error('Error updating author points incrementally:', pointError);
     }
 
     res.json({

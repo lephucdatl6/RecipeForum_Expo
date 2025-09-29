@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useCart } from '../contexts/CartContext';
@@ -63,7 +64,11 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
         onPress={() => navigateToTab('forum')}
       >
         <View style={styles.iconContainer}>
-          <Text style={[styles.icon, activeTab === 'forum' && styles.activeIcon]}>💬</Text>
+          <Ionicons 
+            name={activeTab === 'forum' ? 'chatbubbles' : 'chatbubbles-outline'} 
+            size={24} 
+            color={activeTab === 'forum' ? '#ff8c00' : '#666'} 
+          />
         </View>
         <Text style={[styles.label, activeTab === 'forum' && styles.activeLabel]}>Forum</Text>
       </TouchableOpacity>
@@ -73,7 +78,11 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
         onPress={() => navigateToTab('bookmarks')}
       >
         <View style={styles.iconContainer}>
-          <Text style={[styles.icon, activeTab === 'bookmarks' && styles.activeIcon]}>📙</Text>
+          <Ionicons 
+            name={activeTab === 'bookmarks' ? 'bookmark' : 'bookmark-outline'} 
+            size={24} 
+            color={activeTab === 'bookmarks' ? '#ff8c00' : '#666'} 
+          />
         </View>
         <Text style={[styles.label, activeTab === 'bookmarks' && styles.activeLabel]}>Bookmarks</Text>
       </TouchableOpacity>
@@ -83,7 +92,11 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
         onPress={() => navigateToTab('cart')}
       >
         <View style={styles.iconContainer}>
-          <Text style={[styles.icon, activeTab === 'cart' && styles.activeIcon]}>🛒</Text>
+          <Ionicons 
+            name={activeTab === 'cart' ? 'cart' : 'cart-outline'} 
+            size={24} 
+            color={activeTab === 'cart' ? '#ff8c00' : '#666'} 
+          />
           {cartItemCount > 0 && (
             <View style={styles.cartBadge}>
               <Text style={styles.cartBadgeText}>
@@ -100,7 +113,11 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
         onPress={() => navigateToTab('orders')}
       >
         <View style={styles.iconContainer}>
-          <Text style={[styles.icon, activeTab === 'orders' && styles.activeIcon]}>📦</Text>
+          <Ionicons 
+            name={activeTab === 'orders' ? 'bag' : 'bag-outline'} 
+            size={24} 
+            color={activeTab === 'orders' ? '#ff8c00' : '#666'} 
+          />
         </View>
         <Text style={[styles.label, activeTab === 'orders' && styles.activeLabel]}>Orders</Text>
       </TouchableOpacity>
@@ -110,7 +127,11 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
         onPress={() => navigateToTab('profile')}
       >
         <View style={styles.iconContainer}>
-          <Text style={[styles.icon, activeTab === 'profile' && styles.activeIcon]}>👤</Text>
+          <Ionicons 
+            name={activeTab === 'profile' ? 'person' : 'person-outline'} 
+            size={24} 
+            color={activeTab === 'profile' ? '#ff8c00' : '#666'} 
+          />
         </View>
         <Text style={[styles.label, activeTab === 'profile' && styles.activeLabel]}>Profile</Text>
       </TouchableOpacity>
@@ -144,13 +165,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 4,
   },
-  icon: {
-    fontSize: 24,
-    opacity: 0.6,
-  },
-  activeIcon: {
-    opacity: 1,
-  },
   label: {
     fontSize: 11,
     color: '#666',
@@ -158,12 +172,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   activeLabel: {
-    color: '#007AFF',
+    color: '#ff8c00',
     fontWeight: '600',
   },
   cartBadge: {
     position: 'absolute',
-    top: -8,
+    top: -6,
     right: -8,
     backgroundColor: '#FF3B30',
     borderRadius: 10,

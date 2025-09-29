@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 
@@ -133,7 +134,10 @@ export default function EditProfileScreen() {
         <View style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-              <Text style={styles.backButtonText}>← Back</Text>
+              <View style={styles.backButtonContent}>
+                <Ionicons name="chevron-back" size={20} color="#007AFF" />
+                <Text style={styles.backButtonText}>Back</Text>
+              </View>
             </TouchableOpacity>
             <Text style={styles.title}>Edit Profile</Text>
             <View style={styles.placeholder} />
@@ -153,7 +157,10 @@ export default function EditProfileScreen() {
         <View style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-              <Text style={styles.backButtonText}>← Back</Text>
+              <View style={styles.backButtonContent}>
+                <Ionicons name="chevron-back" size={20} color="#007AFF" />
+                <Text style={styles.backButtonText}>Back</Text>
+              </View>
             </TouchableOpacity>
             <Text style={styles.title}>Edit Profile</Text>
             <View style={styles.placeholder} />
@@ -175,7 +182,10 @@ export default function EditProfileScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <Text style={styles.backButtonText}>← Back</Text>
+            <View style={styles.backButtonContent}>
+              <Ionicons name="chevron-back" size={20} color="#007AFF" />
+              <Text style={styles.backButtonText}>Back</Text>
+            </View>
           </TouchableOpacity>
           <Text style={styles.title}>Edit Profile</Text>
           <TouchableOpacity 
@@ -228,15 +238,24 @@ export default function EditProfileScreen() {
             </View>
 
             <View style={styles.infoSection}>
-              <Text style={styles.infoText}>
-                • Username can be changed as many times as you want
-              </Text>
-              <Text style={styles.infoText}>
-                • Email must be unique and will be used for login
-              </Text>
-              <Text style={styles.infoText}>
-                • Your points and posts will remain unchanged
-              </Text>
+              <View style={styles.infoItem}>
+                <Ionicons name="checkmark-circle" size={16} color="#28a745" style={styles.infoIcon} />
+                <Text style={styles.infoText}>
+                  Username can be changed as many times as you want
+                </Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Ionicons name="checkmark-circle" size={16} color="#28a745" style={styles.infoIcon} />
+                <Text style={styles.infoText}>
+                  Email must be unique and will be used for login
+                </Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Ionicons name="checkmark-circle" size={16} color="#28a745" style={styles.infoIcon} />
+                <Text style={styles.infoText}>
+                  Your points and posts will remain unchanged
+                </Text>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -265,10 +284,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   backButtonText: {
     fontSize: 16,
     color: '#007AFF',
     fontWeight: '600',
+    marginLeft: 2,
   },
   title: {
     fontSize: 20,
@@ -278,7 +302,7 @@ const styles = StyleSheet.create({
   saveButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#ff8c00',
     borderRadius: 6,
   },
   saveButtonDisabled: {
@@ -356,12 +380,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
+    borderLeftColor: '#ff8c00',
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  infoIcon: {
+    marginRight: 8,
+    marginTop: 2,
   },
   infoText: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 5,
     lineHeight: 20,
+    flex: 1,
   },
 });

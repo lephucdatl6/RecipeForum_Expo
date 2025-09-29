@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -304,12 +305,12 @@ export default function CreatePostScreen() {
               <View style={styles.imageContainer}>
                 <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
                 <TouchableOpacity style={styles.removeImageButton} onPress={removeImage}>
-                  <Text style={styles.removeImageText}>✕</Text>
+                  <Ionicons name="close" size={16} color="white" />
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                <Text style={styles.imagePickerIcon}>📷</Text>
+                <Ionicons name="camera-outline" size={32} color="#666" />
                 <Text style={styles.imagePickerText}>Add Photo</Text>
               </TouchableOpacity>
             )}
@@ -475,13 +476,13 @@ export default function CreatePostScreen() {
                         onPress={() => setShowUnitSelector(showUnitSelector === index ? null : index)}
                       >
                         <Text style={styles.unitSelectorText}>{ingredient.unit || 'Unit'}</Text>
-                        <Text style={styles.unitSelectorArrow}>▼</Text>
+                        <Ionicons name="chevron-down" size={14} color="#666" />
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.removeIngredientButton}
                         onPress={() => removeIngredient(index)}
                       >
-                        <Text style={styles.removeIngredientText}>✕</Text>
+                        <Ionicons name="close" size={16} color="white" />
                       </TouchableOpacity>
                     </View>
                     
@@ -707,10 +708,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f9f9f9',
   },
-  imagePickerIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
   imagePickerText: {
     fontSize: 16,
     color: '#666',
@@ -736,11 +733,6 @@ const styles = StyleSheet.create({
     height: 30,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  removeImageText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   ingredientsContainer: {
     marginBottom: 20,
@@ -909,10 +901,5 @@ const styles = StyleSheet.create({
     height: 30,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  removeIngredientText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });

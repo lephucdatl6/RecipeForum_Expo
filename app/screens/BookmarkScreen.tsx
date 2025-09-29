@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -368,13 +369,22 @@ export default function BookmarkScreen() {
         
         <View style={styles.cardFooter}>
           <View style={styles.metaInfo}>
-            <Text style={styles.cookingTime}>⏱️ {item.cookingTime} min</Text>
+            <View style={styles.metaInfoItem}>
+              <Ionicons name="time-outline" size={14} color="#666" />
+              <Text style={styles.metaText}>{item.cookingTime} min</Text>
+            </View>
             {item.difficulty && (
-              <Text style={[styles.difficulty, { color: getDifficultyColor(item.difficulty) }]}>
-                🎯 {item.difficulty}
-              </Text>
+              <View style={styles.metaInfoItem}>
+                <Ionicons name="restaurant-outline" size={14} color={getDifficultyColor(item.difficulty)} />
+                <Text style={[styles.metaText, { color: getDifficultyColor(item.difficulty), fontWeight: 'bold' }]}>
+                  {item.difficulty}
+                </Text>
+              </View>
             )}
-            <Text style={styles.author}>👤 {item.author}</Text>
+            <View style={styles.metaInfoItem}>
+              <Ionicons name="person-outline" size={14} color="#666" />
+              <Text style={styles.metaText}>{item.author}</Text>
+            </View>
           </View>
           <Text style={styles.postDate}>{formatDate(item.createdAt)}</Text>
         </View>
@@ -391,7 +401,11 @@ export default function BookmarkScreen() {
               handleVote(item._id, 'upvote');
             }}
           >
-            <Text style={[styles.voteIcon, item.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
+            <Ionicons 
+              name="chevron-up" 
+              size={16} 
+              color={item.userVote === 'upvote' ? 'white' : '#666'} 
+            />
           </TouchableOpacity>
           
           <View style={styles.netVotes}>
@@ -407,12 +421,16 @@ export default function BookmarkScreen() {
               handleVote(item._id, 'downvote');
             }}
           >
-            <Text style={[styles.voteIcon, item.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
+            <Ionicons 
+              name="chevron-down" 
+              size={16} 
+              color={item.userVote === 'downvote' ? 'white' : '#666'} 
+            />
           </TouchableOpacity>
         </View>
 
         <View style={styles.commentSection}>
-          <Text style={styles.commentCountIcon}>💬</Text>
+          <Ionicons name="chatbubble-outline" size={16} color="#666" />
           <Text style={styles.commentCountText}>{item.commentCount || 0}</Text>
         </View>
 
@@ -420,7 +438,7 @@ export default function BookmarkScreen() {
           style={styles.bookmarkButton}
           onPress={() => handleUnbookmark(item._id, item.title)}
         >
-          <Text style={styles.bookmarkIcon}>❌</Text>
+          <Ionicons name="close-circle" size={25} color="#FF6B6B" />
         </TouchableOpacity>
       </View>
     </View>
@@ -565,6 +583,17 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     flex: 1,
   },
+  metaInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 15,
+    marginBottom: 5,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+  },
   cookingTime: {
     fontSize: 12,
     color: '#666',
@@ -695,14 +724,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  commentCountIcon: {
-    fontSize: 16,
-    marginRight: 6,
-  },
   commentCountText: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
+    marginLeft: 6,
   },
   bookmarkButton: {
     flexDirection: 'row',
@@ -717,9 +743,5 @@ const styles = StyleSheet.create({
     width: 60,
     height: 40,                  
     alignSelf: 'flex-start',   
-  },
-  bookmarkIcon: {
-    fontSize: 16,
-    color: '#666',
   },
 });
