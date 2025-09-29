@@ -30,6 +30,7 @@ interface Recipe {
   image?: string;
   imageStatus?: 'none' | 'pending' | 'processing' | 'ready' | 'failed';
   commentCount?: number;
+  userVote?: 'upvote' | 'downvote' | null;
 }
 
 export default function BookmarkScreen() {
@@ -69,6 +70,12 @@ export default function BookmarkScreen() {
       }
     }, [userData?.user_id, loadCartItemCount])
   );
+
+  useEffect(() => {
+    if (userData && bookmarkedRecipes.length > 0) {
+      loadUserVotes();
+    }
+  }, [userData?.email, bookmarkedRecipes.length]);
 
   const loadBookmarks = async () => {
     if (!userData?.user_id) return;
@@ -173,6 +180,90 @@ export default function BookmarkScreen() {
     );
   };
 
+  const handleVote = async (recipeId: string, voteType: 'upvote' | 'downvote') => {
+    if (!userData) {
+      Alert.alert('Error', 'Please login to vote');
+      return;
+    }
+
+    try {
+      // Find the current recipe to check existing vote
+      const currentRecipe = bookmarkedRecipes.find(r => r._id === recipeId);
+      if (!currentRecipe) return;
+
+      // Determine the actual vote type to send
+      let actualVoteType = voteType;
+      if (currentRecipe.userVote === voteType) {
+        // If clicking the same vote, remove it
+        actualVoteType = 'remove' as any;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/recipes/${recipeId}/vote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          voteType: actualVoteType,
+          userEmail: userData.email
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the recipe in bookmarkedRecipes
+        setBookmarkedRecipes(prev => prev.map(recipe => {
+          if (recipe._id === recipeId) {
+            return {
+              ...recipe,
+              upvotes: data.upvotes,
+              downvotes: data.downvotes,
+              userVote: data.userVote
+            };
+          }
+          return recipe;
+        }));
+      } else {
+        Alert.alert('Error', data.error || 'Failed to vote');
+      }
+    } catch (error) {
+      console.error('Error voting:', error);
+      Alert.alert('Error', 'Failed to vote. Please try again.');
+    }
+  };
+
+  const loadUserVotes = async () => {
+    if (!userData || bookmarkedRecipes.length === 0) return;
+
+    try {
+      // Load vote status for all bookmarked recipes
+      const votePromises = bookmarkedRecipes.map(async (recipe) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe._id}/vote-status/${userData.email}`);
+          const data = await response.json();
+          
+          if (data.success) {
+            return {
+              ...recipe,
+              userVote: data.userVote,
+              upvotes: data.upvotes,
+              downvotes: data.downvotes
+            };
+          }
+        } catch (error) {
+          console.error('Error loading vote status for recipe:', recipe._id, error);
+        }
+        return recipe;
+      });
+
+      const recipesWithVotes = await Promise.all(votePromises);
+      setBookmarkedRecipes(recipesWithVotes);
+    } catch (error) {
+      console.error('Error loading user votes:', error);
+    }
+  };
+
   const handleRecipePress = (recipe: Recipe) => {
     router.push({
       pathname: '/screens/PostDetailScreen',
@@ -184,12 +275,62 @@ export default function BookmarkScreen() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    try {
+      if (!dateString) return 'Unknown date';
+      
+      const date = new Date(dateString);
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        return 'Unknown date';
+      }
+      
+      const now = new Date();
+      const diffInMs = now.getTime() - date.getTime();
+      const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+      const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      const diffInWeeks = Math.floor(diffInDays / 7);
+      const diffInMonths = Math.floor(diffInDays / 30);
+      const diffInYears = Math.floor(diffInDays / 365);
+      
+      // Handle future dates
+      if (diffInMs < 0) return 'Just now';
+      
+      // Less than 1 minute
+      if (diffInMinutes < 1) return 'Just now';
+      
+      // Less than 1 hour
+      if (diffInMinutes < 60) {
+        return diffInMinutes === 1 ? '1 minute ago' : `${diffInMinutes} minutes ago`;
+      }
+      
+      // Less than 24 hours
+      if (diffInHours < 24) {
+        return diffInHours === 1 ? '1 hour ago' : `${diffInHours} hours ago`;
+      }
+      
+      // Less than 7 days
+      if (diffInDays < 7) {
+        return diffInDays === 1 ? '1 day ago' : `${diffInDays} days ago`;
+      }
+      
+      // Less than 4 weeks
+      if (diffInWeeks < 4) {
+        return diffInWeeks === 1 ? '1 week ago' : `${diffInWeeks} weeks ago`;
+      }
+      
+      // Less than 12 months
+      if (diffInMonths < 12) {
+        return diffInMonths === 1 ? '1 month ago' : `${diffInMonths} months ago`;
+      }
+      
+      // 1 year or more
+      return diffInYears === 1 ? '1 year ago' : `${diffInYears} years ago`;
+      
+    } catch {
+      return 'Unknown date';
+    }
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -243,9 +384,15 @@ export default function BookmarkScreen() {
       
       <View style={styles.actionsContainer}>
         <View style={styles.votingSection}>
-          <View style={[styles.voteButton, { opacity: 0.5 }]}>
-            <Text style={styles.voteIcon}>▲</Text>
-          </View>
+          <TouchableOpacity 
+            style={[styles.voteButton, item.userVote === 'upvote' && styles.voteButtonActive]}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleVote(item._id, 'upvote');
+            }}
+          >
+            <Text style={[styles.voteIcon, item.userVote === 'upvote' && styles.voteIconActive]}>▲</Text>
+          </TouchableOpacity>
           
           <View style={styles.netVotes}>
             <Text style={styles.netVotesText}>
@@ -253,9 +400,15 @@ export default function BookmarkScreen() {
             </Text>
           </View>
           
-          <View style={[styles.voteButton, { opacity: 0.5 }]}>
-            <Text style={styles.voteIcon}>▼</Text>
-          </View>
+          <TouchableOpacity 
+            style={[styles.voteButton, item.userVote === 'downvote' && styles.voteButtonActive]}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleVote(item._id, 'downvote');
+            }}
+          >
+            <Text style={[styles.voteIcon, item.userVote === 'downvote' && styles.voteIconActive]}>▼</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.commentSection}>
@@ -521,6 +674,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontWeight: 'bold',
+  },
+  voteButtonActive: {
+    backgroundColor: '#ff8c00',
+  },
+  voteIconActive: {
+    color: 'white',
   },
   netVotes: {
     paddingVertical: 4,

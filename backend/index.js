@@ -1749,8 +1749,9 @@ async function updateAuthorPoints(authorEmail) {
     let totalPoints = 0;
     authorRecipes.forEach(recipe => {
       const netVotes = (recipe.upvotes || 0) - (recipe.downvotes || 0);
-      totalPoints += netVotes;
-      // console.log(`Recipe "${recipe.title}": ${recipe.upvotes || 0} upvotes - ${recipe.downvotes || 0} downvotes = ${netVotes} net`);
+      const points = netVotes * 150; // Net vote is set to 150 points for demo
+      totalPoints += points;
+      // console.log(`Recipe "${recipe.title}": ${recipe.upvotes || 0} upvotes - ${recipe.downvotes || 0} downvotes = ${netVotes} net votes = ${points} points`);
     });
 
     // Ensure points can't go negative
