@@ -72,10 +72,6 @@ const recipeSchema = new mongoose.Schema({
     amount: Number,
     unit: String
   }],
-  instructions: [{
-    step: Number,
-    description: String
-  }],
   cookingTime: {
     type: Number,
     required: true
@@ -1548,7 +1544,6 @@ app.post('/api/recipes', async (req, res) => {
       title,
       description,
       ingredients,
-      instructions,
       cookingTime,
       difficulty,
       category,
@@ -1579,7 +1574,6 @@ app.post('/api/recipes', async (req, res) => {
       title,
       description,
       ingredients: ingredients || [],
-      instructions: instructions || [],
       cookingTime,
       difficulty: difficulty || 'Easy',
       category,

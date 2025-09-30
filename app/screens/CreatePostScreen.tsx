@@ -203,8 +203,7 @@ export default function CreatePostScreen() {
         category: formData.category,
         author: formData.author,
         authorEmail: formData.authorEmail,
-        ingredients: ingredients, // Include the ingredients array
-        instructions: [],
+        ingredients: ingredients,
         image: null, 
         imageStatus: selectedImage ? 'pending' : 'none' // Mark as pending if image selected
       };
