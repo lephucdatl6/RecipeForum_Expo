@@ -17,6 +17,11 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Test Cloudinary connection
+cloudinary.api.ping()
+.then(() => console.log('✅ Cloudinary connected successfully'))
+.catch(err => console.error('❌ Cloudinary connection error:', err));
+
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
 const upload = multer({ 
