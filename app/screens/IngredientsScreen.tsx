@@ -15,6 +15,7 @@ import {
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 import { useCart } from '../../contexts/CartContext';
+import useOrderNotifications from '../../hooks/useOrderNotifications';
 
 interface UserData {
   user_id: string;
@@ -47,6 +48,9 @@ export default function IngredientsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [addingToCart, setAddingToCart] = useState<{[key: number]: boolean}>({});
   const { cartItemCount, loadCartItemCount } = useCart();
+
+  // Order notifications
+  useOrderNotifications({ userId: userData?.user_id, enabled: true, userData });
 
   // Function to handle navigation to cart screen
   const handleCartNavigation = () => {
@@ -111,7 +115,7 @@ export default function IngredientsScreen() {
       const data = await response.json();
 
       if (data.success) {
-        console.log('Ingredients API response:', data.ingredients);
+        // console.log('Ingredients API response:', data.ingredients);
         if (data.ingredients && data.ingredients.length > 0) {
           setIngredients(data.ingredients);
           setFilteredIngredients(data.ingredients);

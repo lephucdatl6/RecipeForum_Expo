@@ -5,6 +5,7 @@ import { Alert, FlatList, Image, Keyboard, Modal, RefreshControl, StyleSheet, Te
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 import { useCart } from '../../contexts/CartContext';
+import useOrderNotifications from '../../hooks/useOrderNotifications';
 
 interface UserData {
   user_id: string;
@@ -45,6 +46,9 @@ export default function RecipesForumScreen() {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'most_upvoted' | 'most_downvoted'>('newest');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
+  
+  // Order notifications
+  useOrderNotifications({ userId: userData?.user_id, enabled: true, userData });
   
   // Image status polling
   const [pollingRecipes, setPollingRecipes] = useState<Set<string>>(new Set());

@@ -5,6 +5,7 @@ import { Alert, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpac
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 import { useCart } from '../../contexts/CartContext';
+import useOrderNotifications from '../../hooks/useOrderNotifications';
 
 interface UserData {
   user_id: string;
@@ -41,6 +42,9 @@ export default function BookmarkScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { cartItemCount, loadCartItemCount } = useCart();
+
+  // Order notifications
+  useOrderNotifications({ userId: userData?.user_id, enabled: true, userData });
 
   // Function to handle navigation to cart screen
   const handleCartNavigation = () => {

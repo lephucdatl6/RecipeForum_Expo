@@ -4,6 +4,7 @@ import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, Vi
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 import { useCart } from '../../contexts/CartContext';
+import useOrderNotifications from '../../hooks/useOrderNotifications';
 
 interface UserData {
   user_id: string;
@@ -49,7 +50,11 @@ export default function OrderTrackingScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
+  const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
   const { loadCartItemCount } = useCart();
+
+  // Order notifications
+  useOrderNotifications({ userId: userData?.user_id, enabled: true, userData });
 
   useEffect(() => {
     if (params.userData) {
@@ -64,6 +69,20 @@ export default function OrderTrackingScreen() {
       console.log('OrderTracking - No user data available');
     }
   }, [params.userData]);
+
+  // Handle highlighted order from notification
+  useEffect(() => {
+    if (params.highlightOrderId) {
+      setHighlightedOrderId(params.highlightOrderId as string);
+      // Auto-expand the highlighted order
+      setExpandedOrder(parseInt(params.highlightOrderId as string));
+      
+      // Clear highlight after 3 seconds
+      setTimeout(() => {
+        setHighlightedOrderId(null);
+      }, 3000);
+    }
+  }, [params.highlightOrderId]);
 
   useEffect(() => {
     if (userData?.user_id) {
@@ -90,7 +109,8 @@ export default function OrderTrackingScreen() {
       const data = await response.json();
       
       if (data.success) {
-        setOrders(data.orders || []);
+        const newOrders = data.orders || [];
+        setOrders(newOrders);
       } else {
         console.error('Failed to load orders:', data.error);
         Alert.alert('Error', 'Failed to load your orders');
@@ -148,17 +168,6 @@ export default function OrderTrackingScreen() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'pending': return '⏳';
-      case 'preparing': return '👨‍🍳';
-      case 'shipped': return '�';
-      case 'arrived': return '�';
-      case 'cancelled': return '❌';
-      default: return '📋';
-    }
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -212,6 +221,7 @@ export default function OrderTrackingScreen() {
 
               if (data.success) {
                 Alert.alert('Success', 'Order cancelled successfully');
+                
                 // Refresh orders list
                 loadUserOrders();
               } else {
