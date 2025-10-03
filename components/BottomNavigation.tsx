@@ -4,7 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useCart } from '../contexts/CartContext';
 
 interface BottomNavigationProps {
-  activeTab: 'profile' | 'forum' | 'bookmarks' | 'orders' | 'cart';
+  activeTab: 'profile' | 'forum' | 'bookmarks' | 'orders' | 'cart' | 'ingredients';
   userData?: any;
 }
 
@@ -54,6 +54,12 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
           params: navigationParams
         });
         break;
+      case 'ingredients':
+        router.replace({
+          pathname: './IngredientsScreen',
+          params: navigationParams
+        });
+        break;
     }
   };
 
@@ -85,6 +91,20 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
           />
         </View>
         <Text style={[styles.label, activeTab === 'bookmarks' && styles.activeLabel]}>Bookmarks</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.tab} 
+        onPress={() => navigateToTab('ingredients')}
+      >
+        <View style={styles.iconContainer}>
+          <Ionicons 
+            name={activeTab === 'ingredients' ? 'leaf' : 'leaf-outline'} 
+            size={24} 
+            color={activeTab === 'ingredients' ? '#ff8c00' : '#666'} 
+          />
+        </View>
+        <Text style={[styles.label, activeTab === 'ingredients' && styles.activeLabel]}>Ingredients</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 
@@ -166,7 +186,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   label: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#666',
     textAlign: 'center',
     fontWeight: '500',

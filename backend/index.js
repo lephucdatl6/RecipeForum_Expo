@@ -1739,10 +1739,10 @@ app.get('/api/recipes/:id', async (req, res) => {
 async function updateAuthorPointsIncremental(authorEmail, voteChange) {
   try {
     // voteChange: +1 for new upvote, -1 for new downvote, 0 for no net change
-    const pointsChange = voteChange * 150; // Each net vote is worth 150 points for demo
+    const pointsChange = voteChange * 150;
     
     if (pointsChange === 0) {
-      return; // No change needed
+      return;
     }
 
     // Get current user points from PostgreSQL

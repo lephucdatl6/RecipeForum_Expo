@@ -913,7 +913,7 @@ export default function PostDetailScreen() {
               // Use a reasonable conversion factor
               let conversionFactor = 1;
               if (unitLower === 'cloves' && packageUnitLower === 'bunch') {
-                conversionFactor = 8; // Assume 1 bunch is 8 cloves
+                conversionFactor = 8; // 1 bunch is 8 cloves
               }
               // For same units, conversionFactor = 1
               
@@ -982,9 +982,9 @@ export default function PostDetailScreen() {
     if (unitLower === 'lbs') return amount * 453.6; // lbs → g (approx)
     
     // Volume conversions to ml
-    if (unitLower === 'liters') return amount * 1000; // liters to ml
+    if (unitLower === 'liters') return amount * 1000; // liters → ml
     if (unitLower === 'ml') return amount; // ml → ml
-    if (unitLower === 'cups') return amount * 240; // cups → ml (approximate)
+    if (unitLower === 'cups') return amount * 240; // cups → ml (approx)
     if (unitLower === 'tbsp') return amount * 15; // tbsp → ml
     if (unitLower === 'tsp') return amount * 5; // tsp → ml
     
@@ -1057,9 +1057,9 @@ export default function PostDetailScreen() {
       
       // For very large amounts, might need multiple packages
       if (amount > 50) {
-        return Math.ceil(amount / 20); // More conservative estimate
+        return Math.ceil(amount / 20);
       }
-      return 1; // Default: buy 1 package/container
+      return 1;
     }
     
     // For bunch units - use recipe amount
@@ -1121,7 +1121,7 @@ export default function PostDetailScreen() {
         if (userData?.user_id) {
           setTimeout(() => {
             loadCartItemCount(userData.user_id);
-          }, 500); // Small delay to ensure backend has processed the addition
+          }, 500);
         }
       } else {
         Alert.alert('Error', data.error || 'Failed to add item to cart');
