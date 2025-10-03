@@ -1,15 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useCart } from '../contexts/CartContext';
 
 interface BottomNavigationProps {
-  activeTab: 'profile' | 'forum' | 'bookmarks' | 'orders' | 'cart' | 'ingredients';
+  activeTab: 'profile' | 'forum' | 'bookmarks' | 'orders' | 'ingredients';
   userData?: any;
 }
 
 export default function BottomNavigation({ activeTab, userData }: BottomNavigationProps) {
-  const { cartItemCount } = useCart();
   const navigateToTab = (tab: string) => {
     // Don't navigate if the user clicks on the currently active tab
     if (tab === activeTab) {
@@ -48,12 +46,7 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
           params: navigationParams
         });
         break;
-      case 'cart':
-        router.replace({
-          pathname: './ShoppingCartScreen',
-          params: navigationParams
-        });
-        break;
+
       case 'ingredients':
         router.replace({
           pathname: './IngredientsScreen',
@@ -105,27 +98,6 @@ export default function BottomNavigation({ activeTab, userData }: BottomNavigati
           />
         </View>
         <Text style={[styles.label, activeTab === 'ingredients' && styles.activeLabel]}>Ingredients</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity 
-        style={styles.tab} 
-        onPress={() => navigateToTab('cart')}
-      >
-        <View style={styles.iconContainer}>
-          <Ionicons 
-            name={activeTab === 'cart' ? 'cart' : 'cart-outline'} 
-            size={24} 
-            color={activeTab === 'cart' ? '#ff8c00' : '#666'} 
-          />
-          {cartItemCount > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>
-                {cartItemCount > 99 ? '99+' : cartItemCount}
-              </Text>
-            </View>
-          )}
-        </View>
-        <Text style={[styles.label, activeTab === 'cart' && styles.activeLabel]}>Cart</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 
@@ -194,23 +166,5 @@ const styles = StyleSheet.create({
   activeLabel: {
     color: '#ff8c00',
     fontWeight: '600',
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -8,
-    backgroundColor: '#FF3B30',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  cartBadgeText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: 'bold',
-    textAlign: 'center',
   },
 });

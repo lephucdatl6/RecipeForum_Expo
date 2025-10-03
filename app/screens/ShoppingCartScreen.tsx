@@ -1,7 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
 import { useCart } from '../../contexts/CartContext';
 
@@ -309,7 +309,15 @@ export default function ShoppingCartScreen() {
       <View style={styles.container}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
           <View style={styles.header}>
-            <Text style={styles.title}>Shopping Cart</Text>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={() => router.back()}
+              >
+                <Ionicons name="arrow-back" size={24} color="#007AFF" />
+              </TouchableOpacity>
+              <Text style={styles.title}>Shopping Cart</Text>
+            </View>
             {cart && cart.items.length > 0 && (
               <TouchableOpacity style={styles.clearAllButton} onPress={clearCart}>
                 <Text style={styles.clearAllButtonText}>Clear All</Text>
@@ -363,10 +371,6 @@ export default function ShoppingCartScreen() {
           </View>
         )}
       </ScrollView>
-      <BottomNavigation 
-        activeTab="cart" 
-        userData={userData} 
-      />
     </View>
     </>
   );
@@ -395,6 +399,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  backButton: {
+    padding: 10,
+    marginRight: 10,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   title: {
     fontSize: 28,
