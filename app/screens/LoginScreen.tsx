@@ -8,7 +8,8 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 
@@ -105,121 +106,220 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={styles.keyboardContainer}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Login</Text>
-        
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        
-        <TextInput
-          style={[styles.input, error && email === '' ? styles.inputError : null]}
-          placeholder="Email"
-          value={email}
-          onChangeText={(text) => {
-            setEmail(text);
-            if (error && text.trim()) setError('');
-          }}
-          placeholderTextColor="#aaa"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          autoComplete="email"
-        />
-        
-        <TextInput
-          style={[styles.input, error && password === '' ? styles.inputError : null]}
-          placeholder="Password"
-          value={password}
-          onChangeText={(text) => {
-            setPassword(text);
-            if (error && text.trim()) setError('');
-          }}
-          placeholderTextColor="#aaa"
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.buttonDisabled]} 
-          onPress={handleLogin}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Logging in...' : 'Login'}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.linkButton} onPress={navigateToSignup}>
-          <Text style={styles.linkText}>Don't have an account? Sign up</Text>
-        </TouchableOpacity>
+        {/* Header Section */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Welcome Back</Text>
+          <Text style={styles.subtitle}>Sign in to your account</Text>
+        </View>
+
+        {/* Form Section */}
+        <View style={styles.formContainer}>
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Email Address</Text>
+            <TextInput
+              style={[styles.input, error && email === '' ? styles.inputError : null]}
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (error && text.trim()) setError('');
+              }}
+              placeholderTextColor="#999"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              autoComplete="email"
+            />
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Password</Text>
+            <TextInput
+              style={[styles.input, error && password === '' ? styles.inputError : null]}
+              placeholder="Enter your password"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (error && text.trim()) setError('');
+              }}
+              placeholderTextColor="#999"
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.loginButton, isLoading && styles.buttonDisabled]} 
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.buttonText}>Logging in...</Text>
+              </View>
+            ) : (
+              <Text style={styles.buttonText}>Sign In</Text>
+            )}
+          </TouchableOpacity>
+          
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+          
+          <TouchableOpacity style={styles.signupButton} onPress={navigateToSignup}>
+            <Text style={styles.signupButtonText}>Create New Account</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  keyboardContainer: {
     flex: 1,
-    padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: '#f5f5f5',
+  },
+  container: {
+    flexGrow: 1,
     justifyContent: 'center',
+    padding: 20,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 30,
-    textAlign: 'center',
     color: '#333',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  formContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 12,
-    marginVertical: 8,
-    borderRadius: 8,
-    color: 'black',
+    borderColor: '#ddd',
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
+    color: '#333',
+    backgroundColor: '#f8f8f8',
   },
   inputError: {
     borderColor: '#ff4444',
     borderWidth: 2,
+    backgroundColor: '#fff5f5',
   },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
-    marginTop: 20,
+  loginButton: {
+    backgroundColor: '#ff8c00',
+    borderRadius: 12,
+    padding: 18,
     alignItems: 'center',
+    marginTop: 8,
+    shadowColor: '#ff8c00',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   buttonDisabled: {
     backgroundColor: '#ccc',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   buttonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
-  linkButton: {
-    marginTop: 20,
+  loadingContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  linkText: {
-    color: '#007AFF',
-    fontSize: 16,
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: '#666',
+  },
+  signupButton: {
+    borderWidth: 2,
+    borderColor: '#ff8c00',
+    borderRadius: 12,
+    padding: 18,
+    alignItems: 'center',
+  },
+  signupButtonText: {
+    color: '#ff8c00',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  errorContainer: {
+    backgroundColor: '#ffebee',
+    borderLeftWidth: 4,
+    borderLeftColor: '#f44336',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 20,
   },
   errorText: {
-    color: '#ff4444',
+    color: '#d32f2f',
     fontSize: 14,
-    marginBottom: 10,
-    textAlign: 'center',
-    backgroundColor: '#ffe6e6',
-    padding: 10,
-    borderRadius: 5,
+    fontWeight: '500',
   },
 });

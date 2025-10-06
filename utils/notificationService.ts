@@ -111,22 +111,22 @@ class NotificationService {
       case 'preparing':
         return {
           title: 'Order Being Prepared',
-          body: `Great news! Your order #${orderId} is now being prepared with care.`,
+          body: `Your order #${orderId} is now being prepared.`,
         };
       case 'shipped':
         return {
           title: 'Order Shipped',
-          body: `Your order #${orderId} is on its way! Track your delivery progress.`,
+          body: `Your order #${orderId} is on its way!`,
         };
       case 'arrived':
         return {
           title: 'Order Delivered',
-          body: `Your order #${orderId} has been delivered. Enjoy your ingredients!`,
+          body: `Your order #${orderId} has been delivered.`,
         };
       case 'cancelled':
         return {
           title: 'Order Cancelled',
-          body: `Your order #${orderId} has been cancelled. If you have questions, please contact support.`,
+          body: `Your order #${orderId} has been cancelled.`,
         };
       default:
         return {

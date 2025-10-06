@@ -319,8 +319,7 @@ export default function EditPostScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView 
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
@@ -453,10 +452,6 @@ export default function EditPostScreen() {
               style={styles.addIngredientButton}
               onPress={() => {
                 setShowIngredientSearch(true);
-                // Scroll to the ingredients section with delay for keyboard
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 100);
               }}
             >
               <Text style={styles.addIngredientButtonText}>+ Add Ingredient</Text>

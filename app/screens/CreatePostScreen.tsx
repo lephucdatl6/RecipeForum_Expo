@@ -268,8 +268,7 @@ export default function CreatePostScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView 
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
@@ -398,9 +397,6 @@ export default function CreatePostScreen() {
               style={styles.addIngredientButton}
               onPress={() => {
                 setShowIngredientSearch(true);
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 100);
               }}
             >
               <Text style={styles.addIngredientButtonText}>+ Add Ingredient</Text>
