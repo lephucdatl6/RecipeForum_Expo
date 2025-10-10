@@ -9,14 +9,41 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Verify connection configuration
-transporter.verify((error, success) => {
-  if (error) {
-    console.log('Email configuration error:', error);
-  } else {
+// Verify connection configuration with better error handling
+const testEmailConnection = async () => {
+  try {
+    // Add timeout and retry
+    const verifyPromise = new Promise((resolve, reject) => {
+      transporter.verify((error, success) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(success);
+        }
+      });
+    });
+
+    // 5 second timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Email connection timeout')), 5000);
+    });
+
+    await Promise.race([verifyPromise, timeoutPromise]);
     console.log('✅ Email service is ready');
+  } catch (error) {
+    if (error.message === 'Email connection timeout') {
+      console.log('❌ Email service: Connection timeout (will retry on first email send)');
+    } else if (error.code === 'ECONNRESET' || error.message.includes('Connection closed')) {
+      console.log('❌ Email service: Connection reset (will retry on first email send)');
+    } else {
+      console.log('❌ Email service: Connection issue -', error.message);
+    }
+    console.log(' Note: Email service will attempt to reconnect when needed');
   }
-});
+};
+
+// Test connection with delay to avoid startup conflicts
+setTimeout(testEmailConnection, 1000);
 
 // Send welcome email
 const sendWelcomeEmail = async (userEmail, username) => {

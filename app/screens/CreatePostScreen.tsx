@@ -170,30 +170,9 @@ export default function CreatePostScreen() {
     setIngredients(updatedIngredients);
   };
 
-  const handlePostData = async () => {
+  // Function to actually post the recipe (called after validation or user confirmation)
+  const createRecipe = async () => {
     try {
-      setIsPosting(true);
-      
-      // Validate required fields
-      if (!formData.title || !formData.description || !formData.cookingTime || !formData.category) {
-        Alert.alert('Error', 'Please fill in all required fields');
-        return;
-      }
-
-      // Validate ingredients - check for zero amounts
-      const invalidIngredients = ingredients.filter(ingredient => ingredient.amount <= 0);
-      if (invalidIngredients.length > 0) {
-        Alert.alert('Invalid Ingredients', 'Please enter a valid amount (greater than 0) for all ingredients or remove them.');
-        return;
-      }
-
-      // Ensure user data is available
-      if (!userData) {
-        Alert.alert('Error', 'User information not available. Please login again.');
-        return;
-      }
-
-      // Create recipe immediately (optimistic creation)
       setLoadingMessage('Creating recipe...');
       const recipeData = {
         title: formData.title,
@@ -205,7 +184,7 @@ export default function CreatePostScreen() {
         authorEmail: formData.authorEmail,
         ingredients: ingredients,
         image: null, 
-        imageStatus: selectedImage ? 'pending' : 'none' // Mark as pending if image selected
+        imageStatus: selectedImage ? 'pending' : 'none'
       };
 
       const response = await fetch(`${API_BASE_URL}/api/recipes`, {
@@ -221,7 +200,6 @@ export default function CreatePostScreen() {
       if (result.success) {
         const recipeId = result.recipe._id;
         
-        // Show success immediately and navigate back
         Alert.alert(
           'Success!', 
           selectedImage 
@@ -231,7 +209,6 @@ export default function CreatePostScreen() {
             {
               text: 'OK',
               onPress: () => {
-                // Navigate back to forum screen
                 router.replace({
                   pathname: './RecipesForumScreen',
                   params: { userData: JSON.stringify(userData) }
@@ -243,13 +220,11 @@ export default function CreatePostScreen() {
 
         // Upload image in background if selected
         if (selectedImage && recipeId) {
-          // Add a small delay to ensure the forum screen shows "pending" status
           setTimeout(() => {
             uploadImageAsync(recipeId, selectedImage);
-          }, 2000); // 2 second delay to show "Image processing..." status
+          }, 2000);
         }
       } else {
-        // Show more detailed error if it's a validation error
         const errorMessage = result.error || 'Failed to create recipe. Please try again.';
         Alert.alert('Error', errorMessage);
       }
@@ -258,6 +233,124 @@ export default function CreatePostScreen() {
       console.error('Error posting recipe:', error);
       Alert.alert('Error', 'Network error. Please check your connection and try again.');
     } finally {
+      setIsPosting(false);
+      setLoadingMessage('');
+    }
+  };
+
+  const handlePostData = async () => {
+    try {
+      setIsPosting(true);
+      
+      // Validate required fields
+      if (!formData.title || !formData.description || !formData.cookingTime || !formData.category) {
+        setIsPosting(false);
+        Alert.alert('Error', 'Please fill in all required fields');
+        return;
+      }
+
+      // Validate ingredients check for zero amounts
+      const invalidIngredients = ingredients.filter(ingredient => ingredient.amount <= 0);
+      if (invalidIngredients.length > 0) {
+        setIsPosting(false);
+        Alert.alert('Invalid Ingredients', 'Please enter a valid amount (greater than 0) for all ingredients or remove them.');
+        return;
+      }
+
+      // Ensure user data is available
+      if (!userData) {
+        setIsPosting(false);
+        Alert.alert('Error', 'User information not available. Please login again.');
+        return;
+      }
+
+      // Use AI validation for both content and ingredients
+      setLoadingMessage('Reviewing recipe before posting...');
+      
+      try {
+        // Call backend AI validation
+        const response = await fetch(`${API_BASE_URL}/api/validate-recipe`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            title: formData.title,
+            description: formData.description,
+            category: formData.category,
+            ingredients: ingredients 
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          const hasContentIssues = !result.contentValid;
+          const hasUnitWarnings = result.unitWarnings && result.unitWarnings.length > 0;
+          
+          // Content validation is required
+          if (hasContentIssues) {
+            setIsPosting(false);
+            setLoadingMessage('');
+            
+            Alert.alert(
+              'Content Validation Failed',
+              `Your recipe content needs to be reviewed:\n\n${result.contentReason}\n\nPlease edit your title, description, or category and try again.`,
+              [
+                {
+                  text: 'OK',
+                  style: 'default',
+                  onPress: () => {
+                    // User must fix content issues
+                  }
+                }
+              ]
+            );
+            return;
+          }
+          
+          // Unit warnings are optional
+          if (hasUnitWarnings) {
+            setIsPosting(false);
+            setLoadingMessage('');
+            
+            const unitWarningList = result.unitWarnings.map((warning: string) => `• ${warning}`).join('\n');
+            
+            Alert.alert(
+              'Unit Warning',
+              `Some ingredient units seem unusual:\n\n${unitWarningList}\n\nWould you like to review them?`,
+              [
+                {
+                  text: 'Cancel & Edit',
+                  style: 'cancel',
+                  onPress: () => {
+                    // User can edit the ingredients
+                  }
+                },
+                {
+                  text: 'Post Anyway',
+                  style: 'destructive',
+                  onPress: () => {
+                    setIsPosting(true);
+                    createRecipe();
+                  }
+                }
+              ]
+            );
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error validating recipe:', error);
+        // If validation fails, continue with posting (don't block user)
+      }
+
+      // No warnings, proceed with posting
+      await createRecipe();
+
+    } catch (error) {
+      console.error('Error in handlePostData:', error);
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
       setIsPosting(false);
       setLoadingMessage('');
     }

@@ -9,6 +9,7 @@ const { sendWelcomeEmail, sendOrderConfirmationEmail } = require('./emailService
 const { generateApiConfig } = require('../scripts/generateApiConfig');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
+const aiValidationService = require('./aiValidationService');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -59,6 +60,9 @@ pool.connect()
 mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('✅ MongoDB connected successfully'))
 .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// Test Gemini AI connection
+aiValidationService.testConnection();
 
 // Recipe Schema for MongoDB
 const recipeSchema = new mongoose.Schema({
@@ -1542,6 +1546,74 @@ app.put('/api/recipes/:id/image', async (req, res) => {
   }
 });
 
+// Validate ingredients endpoint (legacy - keeping for backward compatibility)
+app.post('/api/validate-ingredients', async (req, res) => {
+  try {
+    const { ingredients } = req.body;
+
+    if (!ingredients || !Array.isArray(ingredients)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid ingredients data'
+      });
+    }
+
+    // Use AI validation service to check ingredient units
+    const unitValidation = await aiValidationService.validateIngredientUnits(ingredients);
+    
+    res.json({
+      success: true,
+      warnings: unitValidation.warnings || []
+    });
+
+  } catch (error) {
+    console.error('Error validating ingredients:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to validate ingredients',
+      warnings: []
+    });
+  }
+});
+
+// Combined validation endpoint for recipe content and ingredients
+app.post('/api/validate-recipe', async (req, res) => {
+  try {
+    const { title, description, category, ingredients } = req.body;
+
+    if (!title || !description || !category) {
+      return res.status(400).json({
+        success: false,
+        error: 'Title, description, and category are required'
+      });
+    }
+
+    // Use AI validation service to check both content and ingredient units
+    const validation = await aiValidationService.validateRecipeComplete(
+      title, 
+      description, 
+      category, 
+      ingredients || []
+    );
+    
+    res.json({
+      success: true,
+      contentValid: validation.contentValid,
+      contentReason: validation.contentReason,
+      unitWarnings: validation.unitWarnings
+    });
+
+  } catch (error) {
+    console.error('Error validating recipe:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to validate recipe',
+      contentValid: true,
+      unitWarnings: []
+    });
+  }
+});
+
 // Post a new recipe
 app.post('/api/recipes', async (req, res) => {
   try {
@@ -1565,7 +1637,7 @@ app.post('/api/recipes', async (req, res) => {
       });
     }
 
-    // Validate ingredients - check for zero or negative amounts
+    // Basic ingredient validation - check for zero or negative amounts
     if (ingredients && ingredients.length > 0) {
       const invalidIngredients = ingredients.filter(ingredient => ingredient.amount <= 0);
       if (invalidIngredients.length > 0) {
@@ -1574,6 +1646,9 @@ app.post('/api/recipes', async (req, res) => {
         });
       }
     }
+
+    // Note: AI validation is now done upfront in the frontend via /api/validate-recipe
+    // This avoids duplicate validation and improves performance
 
     const recipe = new Recipe({
       title,
@@ -1629,6 +1704,17 @@ app.put('/api/recipes/:id', async (req, res) => {
       });
     }
 
+    // Update AI Content Validation existing recipe
+    console.log('Validating recipe content with AI...');
+    const aiValidation = await aiValidationService.validateRecipe(title, description, category);
+    if (!aiValidation.isValid) {
+      return res.status(400).json({ 
+        success: false,
+        error: `Content validation failed: ${aiValidation.reason}`,
+        validationError: true
+      });
+    }
+
     // Validate ingredients - check for zero or negative amounts
     if (ingredients && ingredients.length > 0) {
       const invalidIngredients = ingredients.filter(ingredient => ingredient.amount <= 0);
@@ -1638,6 +1724,14 @@ app.put('/api/recipes/:id', async (req, res) => {
           error: 'All ingredients must have an amount greater than 0' 
         });
       }
+    }
+
+    // AI Ingredient Unit Validation (warnings only)
+    let unitWarnings = [];
+    if (ingredients && ingredients.length > 0) {
+      console.log('Validating ingredient units with AI...');
+      const unitValidation = await aiValidationService.validateIngredientUnits(ingredients);
+      unitWarnings = unitValidation.warnings || [];
     }
 
     // Find and update the recipe
@@ -1664,11 +1758,19 @@ app.put('/api/recipes/:id', async (req, res) => {
       });
     }
 
-    res.json({
+    const response = {
       success: true,
       message: 'Recipe updated successfully!',
       recipe: updatedRecipe
-    });
+    };
+
+    // Include unit warnings if any
+    if (unitWarnings.length > 0) {
+      response.unitWarnings = unitWarnings;
+      response.message = 'Recipe updated successfully! Note: Some ingredient units may not be typical for those ingredients.';
+    }
+
+    res.json(response);
 
   } catch (error) {
     console.error('Error updating recipe:', error);

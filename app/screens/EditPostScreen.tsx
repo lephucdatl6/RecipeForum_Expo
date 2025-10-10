@@ -218,23 +218,125 @@ export default function EditPostScreen() {
       
       // Validate required fields
       if (!formData.title || !formData.description || !formData.cookingTime || !formData.category) {
+        setIsUpdating(false);
         Alert.alert('Error', 'Please fill in all required fields');
         return;
       }
 
-      // Validate ingredients - check for zero amounts
       const invalidIngredients = ingredients.filter(ingredient => ingredient.amount <= 0);
       if (invalidIngredients.length > 0) {
+        setIsUpdating(false);
         Alert.alert('Invalid Ingredients', 'Please enter a valid amount (greater than 0) for all ingredients or remove them.');
         return;
       }
 
       if (!recipeId) {
+        setIsUpdating(false);
         Alert.alert('Error', 'Recipe ID not found. Cannot update.');
         return;
       }
 
-      // Update recipe immediately (optimistic update)
+      // Ensure user data is available
+      if (!userData) {
+        setIsUpdating(false);
+        Alert.alert('Error', 'User information not available. Please login again.');
+        return;
+      }
+
+      setLoadingMessage('Reviewing recipe before updating...');
+      
+      try {
+        // Call backend AI validation
+        const response = await fetch(`${API_BASE_URL}/api/validate-recipe`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            title: formData.title,
+            description: formData.description,
+            category: formData.category,
+            ingredients: ingredients 
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          const hasContentIssues = !result.contentValid;
+          const hasUnitWarnings = result.unitWarnings && result.unitWarnings.length > 0;
+          
+          // Content validation is required
+          if (hasContentIssues) {
+            setIsUpdating(false);
+            setLoadingMessage('');
+            
+            Alert.alert(
+              'Content Validation Failed',
+              `Your recipe content needs to be reviewed:\n\n${result.contentReason}\n\nPlease edit your title, description, or category and try again.`,
+              [
+                {
+                  text: 'OK',
+                  style: 'default',
+                  onPress: () => {
+                    // User must fix content issues
+                  }
+                }
+              ]
+            );
+            return;
+          }
+          
+          // Unit warnings are optional
+          if (hasUnitWarnings) {
+            setIsUpdating(false);
+            setLoadingMessage('');
+            
+            const unitWarningList = result.unitWarnings.map((warning: string) => `• ${warning}`).join('\n');
+            
+            Alert.alert(
+              'Unit Warning',
+              `Some ingredient units seem unusual:\n\n${unitWarningList}\n\nWould you like to review them?`,
+              [
+                {
+                  text: 'Cancel & Edit',
+                  style: 'cancel',
+                  onPress: () => {
+                    // User can edit the ingredients
+                  }
+                },
+                {
+                  text: 'Update Anyway',
+                  style: 'destructive',
+                  onPress: () => {
+                    setIsUpdating(true);
+                    updateRecipe();
+                  }
+                }
+              ]
+            );
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error validating recipe:', error);
+        // If validation fails, continue with updating (don't block user)
+      }
+
+      // No warnings, proceed with updating
+      await updateRecipe();
+
+    } catch (error) {
+      console.error('Error in handleUpdatePost:', error);
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      setIsUpdating(false);
+      setLoadingMessage('');
+    }
+  };
+
+  // Function to actually update the recipe (called after validation or user confirmation)
+  const updateRecipe = async () => {
+    try {
       setLoadingMessage('Updating recipe...');
       
       // Determine image status for immediate update
@@ -295,7 +397,7 @@ export default function EditPostScreen() {
         );
 
         // Upload new image in background if changed
-        if (selectedImage && selectedImage !== originalImage) {
+        if (selectedImage && selectedImage !== originalImage && recipeId) {
           // Add a small delay to ensure the forum screen shows "pending" status
           setTimeout(() => {
             uploadImageAsync(recipeId.toString(), selectedImage);
