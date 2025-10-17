@@ -1,4 +1,5 @@
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
@@ -51,10 +52,24 @@ export default function OrderTrackingScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
-  const { loadCartItemCount } = useCart();
+  const { cartItemCount, loadCartItemCount } = useCart();
 
   // Order notifications
   useOrderNotifications({ userId: userData?.user_id, enabled: true, userData });
+
+  const handleCartNavigation = () => {
+    if (!userData) {
+      Alert.alert('Login Required', 'Please log in to view your cart.');
+      return;
+    }
+    
+    router.push({
+      pathname: './ShoppingCartScreen',
+      params: {
+        userData: JSON.stringify(userData)
+      }
+    });
+  };
 
   useEffect(() => {
     if (params.userData) {
@@ -317,10 +332,24 @@ export default function OrderTrackingScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>My Orders</Text>
-        <Text style={styles.subtitle}>
-          Track your order status and history
-        </Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>My Orders</Text>
+          <Text style={styles.subtitle}>
+            Track your order status and history
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
+          <View style={styles.cartIconContainer}>
+            <Ionicons name="cart-outline" size={24} color="#666" />
+            {cartItemCount > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>
+                  {Math.floor(cartItemCount) > 99 ? '99+' : Math.floor(cartItemCount)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -359,17 +388,45 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerContent: {
+    flex: 1,
+  },
+  cartButton: {
+    padding: 8,
+  },
+  cartIconContainer: {
+    position: 'relative',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
-    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
-    textAlign: 'center',
     marginTop: 5,
   },
   listContainer: {
