@@ -3,7 +3,6 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 class AIValidationService {
   constructor() {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // Model setup
     this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   }
 
@@ -20,7 +19,7 @@ class AIValidationService {
       // Check if API key is configured
       if (!process.env.GEMINI_API_KEY) {
         console.warn('GEMINI_API_KEY not configured, skipping AI validation');
-        return { isValid: true }; // Allow content if AI is not configured
+        return { isValid: true };
       }
 
       const prompt = `You are a content moderator for a recipe sharing platform. Analyze the following recipe post and determine if it's legitimate content or spam.
@@ -50,7 +49,7 @@ Examples of VALID content:
 - Title: "Pasta Carbonara" Description: "A classic Italian dish with eggs and cheese" Category: "Pasta"
 - Title: "Cheese Bread" Description: "Soft bread with melted cheese" Category: "Bread"
 - Title: "Beef Stew" Description: "Hearty stew with tender beef and vegetables" Category: "Soup"
-- Title: "妈妈的饺子" Description: "传统的中国饺子做法" Category: "Main Course" (any language is fine)
+- Title: "Cơm chiên" Description: "Công thức làm cơm chiên" Category: "Cơm" (any language is fine)
 
 Common category matches:
 - Bread recipes → "Bread" category
@@ -87,7 +86,7 @@ Do not include any other text in your response.`;
       }
 
     } catch (error) {
-      console.error('AI Validation Error:', error);
+      // console.error('AI Validation Error:', error);
       // If AI validation fails, allow the content to avoid blocking legitimate posts
       return { isValid: true };
     }
@@ -113,7 +112,94 @@ Do not include any other text in your response.`;
   }
 
   /**
-   * Validates ingredient units using AI-first approach with minimal fallback rules
+   * Fallback rule-based ingredient unit validation using pattern classification
+   * @param {Array} ingredients - Array of ingredient objects
+   * @returns {Array<string>} - Array of warning messages
+   */
+  fallbackValidateIngredientUnits(ingredients) {
+    const warnings = [];
+    
+    const unitCategories = {
+      weight: ['g', 'grams', 'kg', 'kilogram', 'oz', 'ounce', 'lb', 'lbs', 'pound', 'pounds'],
+      volume: ['ml', 'milliliters', 'l', 'liter', 'liters', 'cup', 'cups', 'tbsp', 'tablespoon', 'tsp', 'teaspoon'],
+      count: ['pcs', 'pieces', 'piece', 'cloves', 'clove', 'slices', 'slice', 'bottles', 'bottle', 'cans', 'can', 'bunch']
+    };
+    
+    // Pattern-based classification
+    const patterns = {
+      // Liquid indicators
+      liquid: /\b(oil|milk|water|juice|broth|stock|cream|wine|vinegar|sauce|syrup|honey)\b/i,
+      
+      // Spice/seasoning indicators  
+      spice: /\b(salt|pepper|paprika|cumin|oregano|basil|thyme|rosemary|cinnamon|nutmeg|ginger|turmeric|curry|chili|cayenne)\b/i,
+      
+      // Meat indicators
+      meat: /\b(chicken|beef|pork|fish|lamb|turkey|duck|salmon|tuna|shrimp|crab)\b/i,
+      
+      // Garlic specific
+      garlic: /\bgarlic\b/i,
+      
+      // Flour/powder ingredients
+      powder: /\b(flour|sugar|powder|starch|cocoa|butter)\b/i,
+      
+      // Countable items
+      countable: /\b(egg|apple|banana|potato|onion|tomato|lemon|lime|orange|bread)\b/i
+    };
+    
+    ingredients.forEach(ingredient => {
+      const name = ingredient.name.toLowerCase();
+      const unit = ingredient.unit.toLowerCase();
+      const amount = parseFloat(ingredient.amount);
+      
+      // Rule 1: Garlic in liquid units
+      if (patterns.garlic.test(name) && unitCategories.volume.includes(unit)) {
+        warnings.push(`${ingredient.name} - Use 'cloves' or 'grams' instead of '${ingredient.unit}'`);
+      }
+      
+      // Rule 2: Liquids in count units
+      if (patterns.liquid.test(name) && unitCategories.count.includes(unit)) {
+        warnings.push(`${ingredient.name} - Use 'ml', 'cups', or 'tbsp' instead of '${ingredient.unit}'`);
+      }
+      
+      // Rule 3: Excessive spice amounts
+      if (patterns.spice.test(name)) {
+        if (unitCategories.weight.includes(unit) && amount > 50) {
+          warnings.push(`${ingredient.name} - ${amount}${ingredient.unit} seems excessive for seasoning`);
+        }
+        if (unit === 'cups' && amount > 0.5) {
+          warnings.push(`${ingredient.name} - ${amount} cups seems too much for seasoning`);
+        }
+        if (['ml', 'milliliters', 'l', 'liter', 'liters'].includes(unit)) {
+          warnings.push(`${ingredient.name} - Use 'tsp', 'tbsp', or 'grams' instead of '${ingredient.unit}'`);
+        }
+      }
+      
+      // Rule 4: Meat in tiny units
+      if (patterns.meat.test(name) && ['tsp', 'teaspoon', 'tbsp', 'tablespoon'].includes(unit)) {
+        warnings.push(`${ingredient.name} - Use 'grams', 'lbs', or 'pcs' instead of '${ingredient.unit}'`);
+      }
+      
+      // Rule 5: Powder/flour in count units
+      if (patterns.powder.test(name) && unitCategories.count.includes(unit)) {
+        warnings.push(`${ingredient.name} - Use 'grams', 'cups', or 'tbsp' instead of '${ingredient.unit}'`);
+      }
+      
+      // Rule 6: Very large liquid amounts
+      if (patterns.liquid.test(name) && unitCategories.weight.includes(unit) && amount > 1000) {
+        warnings.push(`${ingredient.name} - ${amount}${ingredient.unit} seems too much, maybe use 'ml' or 'cups'?`);
+      }
+      
+      // Rule 7: Liquids in weight units
+      if (patterns.liquid.test(name) && unitCategories.weight.includes(unit)) {
+        warnings.push(`${ingredient.name} - Liquids are usually measured in 'ml', 'cups', or 'tbsp' instead of '${ingredient.unit}'`);
+      }
+    });
+    
+    return warnings;
+  }
+
+  /**
+   * Validates ingredient units using AI-first approach with pattern-based fallback
    * @param {Array} ingredients - Array of ingredient objects with name, amount, and unit
    * @returns {Promise<{warnings: Array<string>}>}
    */
@@ -127,7 +213,7 @@ Do not include any other text in your response.`;
 
       // Use AI as primary validation method if available
       if (process.env.GEMINI_API_KEY) {
-        console.log('Using AI validation for ingredients...');
+        // console.log('Using AI validation for ingredients...');
         
         const ingredientList = ingredients.map(ing => 
           `- ${ing.name}: ${ing.amount} ${ing.unit}`
@@ -167,7 +253,7 @@ Do not explain your reasoning, just provide the warnings or "OK".`;
           const response = result.response;
           const text = response.text().trim();
           
-          console.log('AI Ingredient Unit Validation Response:', text);
+          // console.log('AI Ingredient Unit Validation Response:', text);
 
           if (text !== 'OK' && !text.includes('OK')) {
             const aiWarnings = text.split('\n')
@@ -176,14 +262,14 @@ Do not explain your reasoning, just provide the warnings or "OK".`;
             warnings.push(...aiWarnings);
           }
         } catch (aiError) {
-          console.error('AI validation failed, falling back to rule-based validation:', aiError);
-          // Fall back to basic rule based validation only if AI fails
-          warnings = this.fallbackRuleValidation(ingredients);
+          // console.error('AI validation failed, using fallback validation:', aiError);
+          // Use fallback validation when AI fails
+          warnings = this.fallbackValidateIngredientUnits(ingredients);
         }
       } else {
-        console.log('No AI key configured, using fallback rule validation...');
-        // Use fallback rules if no AI available
-        warnings = this.fallbackRuleValidation(ingredients);
+        // console.log('No AI key configured, using fallback ingredient unit validation');
+        // Use fallback validation when no AI available
+        warnings = this.fallbackValidateIngredientUnits(ingredients);
       }
 
       return { warnings };
@@ -192,40 +278,6 @@ Do not explain your reasoning, just provide the warnings or "OK".`;
       console.error('Ingredient Unit Validation Error:', error);
       return { warnings: [] };
     }
-  }
-
-  /**
-   * Fallback rule-based validation for when AI is not available
-   * @param {Array} ingredients - Array of ingredient objects
-   * @returns {Array<string>} - Array of warning messages
-   */
-  fallbackRuleValidation(ingredients) {
-    const warnings = [];
-
-    for (const ingredient of ingredients) {
-      const name = ingredient.name.toLowerCase();
-      const unit = ingredient.unit.toLowerCase();
-      const amount = parseFloat(ingredient.amount);
-
-      // Only the most obvious mismatches for fallback
-      if (name.includes('garlic') && (unit.includes('liter') || unit.includes('ml') || unit.includes('cup'))) {
-        warnings.push(`${ingredient.name} - Use 'cloves' or 'grams' instead of '${ingredient.unit}'`);
-      }
-      
-      if (name.includes('butter') && (unit.includes('pcs') || unit.includes('piece'))) {
-        warnings.push(`${ingredient.name} - Use 'grams', 'tbsp', or 'cups' instead of '${ingredient.unit}'`);
-      }
-
-      if (name.includes('salt') && (unit.includes('kg') || unit.includes('liter'))) {
-        warnings.push(`${ingredient.name} - Use 'tsp', 'tbsp', or 'grams' instead of '${ingredient.unit}'`);
-      }
-    }
-
-    if (warnings.length > 0) {
-      console.log('Fallback rule validation found warnings:', warnings);
-    }
-    
-    return warnings;
   }
 
   /**
