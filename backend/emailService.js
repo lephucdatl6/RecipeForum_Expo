@@ -32,9 +32,9 @@ const testEmailConnection = async () => {
     console.log('✅ Email service is ready');
   } catch (error) {
     if (error.message === 'Email connection timeout') {
-      console.log('❌ Email service: Connection timeout (will retry on first email send)');
+      console.log('❌ Email service: Connection timeout');
     } else if (error.code === 'ECONNRESET' || error.message.includes('Connection closed')) {
-      console.log('❌ Email service: Connection reset (will retry on first email send)');
+      console.log('❌ Email service: Connection reset');
     } else {
       console.log('❌ Email service: Connection issue -', error.message);
     }

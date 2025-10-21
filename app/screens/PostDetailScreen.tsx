@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../../config/apiConfig';
 import { useCart } from '../../contexts/CartContext';
+import { NutritionalInfo, NutritionResponse } from '../../types/nutrition';
 
 interface Ingredient {
   ingredientId: number;
@@ -32,6 +33,7 @@ interface Recipe {
   imageStatus?: 'none' | 'pending' | 'processing' | 'ready' | 'failed';
   ingredients?: Ingredient[];
   isBookmarked?: boolean;
+  nutritionalInfo?: NutritionalInfo;
 }
 
 interface UserData {
@@ -92,6 +94,11 @@ export default function PostDetailScreen() {
   const [isAddingToCart, setIsAddingToCart] = useState<{[key: number]: boolean}>({});
   const { cartItemCount, loadCartItemCount } = useCart();
 
+  // Nutrition-related states
+  const [nutritionalInfo, setNutritionalInfo] = useState<NutritionalInfo | null>(null);
+  const [isCalculatingNutrition, setIsCalculatingNutrition] = useState(false);
+  const [showNutrition, setShowNutrition] = useState(false);
+
   // Function to handle navigation to cart screen
   const handleCartNavigation = () => {
     if (!userData) {
@@ -117,6 +124,24 @@ export default function PostDetailScreen() {
         setRecipe(recipeData);
         setAuthorProfileImage(null);
         setVoteStatusLoaded(recipeData.hasOwnProperty('userVote'));
+        
+        // Check for cached nutritional information
+        if (recipeData.nutritionalInfo && 
+            recipeData.nutritionalInfo.totalCalories !== null && 
+            recipeData.nutritionalInfo.totalCalories !== undefined) {
+          setNutritionalInfo(recipeData.nutritionalInfo);
+          setShowNutrition(true);
+          console.log('Loaded cached nutritional information from recipe data');
+          
+          // Check if there are warning notes for database fallback
+          if (recipeData.nutritionalInfo.notes) {
+            // console.log('Found warning notes in cached nutrition data, will attempt AI recalculation');
+            setTimeout(() => {
+              // console.log('Auto-retrying nutrition calculation to attempt AI processing...');
+              calculateNutrition(true);
+            }, 1000);
+          }
+        }
       } catch (error) {
         console.error('Error parsing recipe data:', error);
       }
@@ -1134,6 +1159,49 @@ export default function PostDetailScreen() {
     }
   };
 
+  // Calculate nutritional information for the recipe
+  const calculateNutrition = async (forceRecalculate = false) => {
+    if (!recipe || !recipe.ingredients || recipe.ingredients.length === 0) {
+      Alert.alert('Error', 'No ingredients found to analyze');
+      return;
+    }
+
+    setIsCalculatingNutrition(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe.id}/nutrition`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          forceRecalculate: forceRecalculate
+        }),
+      });
+
+      const data: NutritionResponse = await response.json();
+
+      if (data.success && data.nutritionalInfo) {
+        setNutritionalInfo(data.nutritionalInfo);
+        setShowNutrition(true);
+        
+        // Show a message if the data was retrieved from cache
+        if (data.cached) {
+          // console.log('Nutritional information loaded from cache');
+        } else {
+          // console.log('Nutritional information calculated and cached');
+        }
+      } else {
+        Alert.alert('Error', data.error || 'Failed to calculate nutritional information');
+      }
+    } catch (error) {
+      console.error('Error calculating nutrition:', error);
+      Alert.alert('Error', 'Failed to calculate nutritional information. Please try again.');
+    } finally {
+      setIsCalculatingNutrition(false);
+    }
+  };
+
   // Check if current user is the owner of the post
   const isOwner = userData && recipe && userData.email === recipe.authorEmail;
 
@@ -1346,6 +1414,122 @@ export default function PostDetailScreen() {
                     </View>
                   ))}
                 </View>
+              </View>
+            )}
+
+            {/* Nutritional Information Section */}
+            {recipe.ingredients && recipe.ingredients.length > 0 && (
+              <View style={styles.nutritionSection}>
+                <Text style={styles.sectionTitle}>Nutritional Information</Text>
+                
+                {!showNutrition ? (
+                  <TouchableOpacity 
+                    style={[styles.calculateButton, isCalculatingNutrition && styles.calculateButtonDisabled]}
+                    onPress={() => calculateNutrition(false)}
+                    disabled={isCalculatingNutrition}
+                  >
+                    <Text style={[styles.calculateButtonText, isCalculatingNutrition && styles.calculateButtonTextDisabled]}>
+                      {isCalculatingNutrition ? 'Calculating...' : 'Show Nutrition'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity 
+                    style={[styles.recalculateButton, isCalculatingNutrition && styles.calculateButtonDisabled]}
+                    onPress={() => {
+                      setShowNutrition(false);
+                      setNutritionalInfo(null);
+                      setTimeout(() => calculateNutrition(), 100);
+                    }}
+                    disabled={isCalculatingNutrition}
+                  >
+                    <Ionicons 
+                      name="refresh-outline" 
+                      size={16} 
+                      color="#007AFF" 
+                      style={styles.calculateButtonIcon}
+                    />
+                    <Text style={styles.recalculateButtonText}>
+                      {isCalculatingNutrition ? 'Calculating...' : 'Recalculate'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {showNutrition && nutritionalInfo && (
+                  <View style={styles.nutritionContent}>
+                    <View style={styles.nutritionOverview}>
+                      <View style={styles.nutritionCard}>
+                        <Text style={styles.nutritionCardTitle}>Calories</Text>
+                        <Text style={styles.nutritionCardValue}>{nutritionalInfo.caloriesPerServing}</Text>
+                        <Text style={styles.nutritionCardUnit}>per serving</Text>
+                      </View>
+                      <View style={styles.nutritionCard}>
+                        <Text style={styles.nutritionCardTitle}>Servings</Text>
+                        <Text style={styles.nutritionCardValue}>{nutritionalInfo.servings}</Text>
+                        <Text style={styles.nutritionCardUnit}>total</Text>
+                      </View>
+                      <View style={styles.nutritionCard}>
+                        <Text style={styles.nutritionCardTitle}>Total</Text>
+                        <Text style={styles.nutritionCardValue}>{nutritionalInfo.totalCalories}</Text>
+                        <Text style={styles.nutritionCardUnit}>calories</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.macronutrients}>
+                      <Text style={styles.nutritionSubtitle}>Macronutrients</Text>
+                      <View style={styles.macroGrid}>
+                        <View style={styles.macroItem}>
+                          <Text style={styles.macroLabel}>Carbs</Text>
+                          <Text style={styles.macroValue}>{nutritionalInfo.macronutrients.carbohydrates}g</Text>
+                        </View>
+                        <View style={styles.macroItem}>
+                          <Text style={styles.macroLabel}>Protein</Text>
+                          <Text style={styles.macroValue}>{nutritionalInfo.macronutrients.protein}g</Text>
+                        </View>
+                        <View style={styles.macroItem}>
+                          <Text style={styles.macroLabel}>Fat</Text>
+                          <Text style={styles.macroValue}>{nutritionalInfo.macronutrients.fat}g</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.micronutrients}>
+                      <Text style={styles.nutritionSubtitle}>Additional Nutrients</Text>
+                      <View style={styles.microGrid}>
+                        <View style={styles.microItem}>
+                          <Text style={styles.microLabel}>Fiber</Text>
+                          <Text style={styles.microValue}>{nutritionalInfo.micronutrients.fiber}g</Text>
+                        </View>
+                        <View style={styles.microItem}>
+                          <Text style={styles.microLabel}>Sugar</Text>
+                          <Text style={styles.microValue}>{nutritionalInfo.micronutrients.sugar}g</Text>
+                        </View>
+                        <View style={styles.microItem}>
+                          <Text style={styles.microLabel}>Sodium</Text>
+                          <Text style={styles.microValue}>{nutritionalInfo.micronutrients.sodium}mg</Text>
+                        </View>
+                        <View style={styles.microItem}>
+                          <Text style={styles.microLabel}>Calcium</Text>
+                          <Text style={styles.microValue}>{nutritionalInfo.micronutrients.calcium}mg</Text>
+                        </View>
+                        <View style={styles.microItem}>
+                          <Text style={styles.microLabel}>Iron</Text>
+                          <Text style={styles.microValue}>{nutritionalInfo.micronutrients.iron}mg</Text>
+                        </View>
+                        <View style={styles.microItem}>
+                          <Text style={styles.microLabel}>Vitamin C</Text>
+                          <Text style={styles.microValue}>{nutritionalInfo.micronutrients.vitaminC}mg</Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    {/* Warning message for database fallback */}
+                    {nutritionalInfo.notes && (
+                      <View style={styles.nutritionWarning}>
+                        <Text style={styles.nutritionWarningText}>{nutritionalInfo.notes}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
             )}
 
@@ -2200,5 +2384,178 @@ const styles = StyleSheet.create({
     width: 50,
     height: 40,                  
     alignSelf: 'flex-start',   
+  },
+  nutritionSection: {
+    marginBottom: 20,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  calculateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 10,
+    alignSelf: 'center',
+    minWidth: 160,
+    shadowColor: '#007AFF',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  calculateButtonDisabled: {
+    backgroundColor: '#cccccc',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  calculateButtonIcon: {
+    marginRight: 8,
+  },
+  calculateButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  calculateButtonTextDisabled: {
+    color: '#999',
+  },
+  recalculateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 10,
+    alignSelf: 'flex-end',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  recalculateButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  nutritionContent: {
+    marginTop: 10,
+  },
+  nutritionOverview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  nutritionCard: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  nutritionCardTitle: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  nutritionCardValue: {
+    fontSize: 18,
+    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  nutritionCardUnit: {
+    fontSize: 10,
+    color: '#999',
+  },
+  macronutrients: {
+    marginBottom: 20,
+  },
+  nutritionSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  macroGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  macroItem: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  macroLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  macroValue: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  micronutrients: {
+    marginBottom: 20,
+  },
+  microGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  microItem: {
+    width: '48%',
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  microLabel: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 3,
+    fontWeight: '500',
+  },
+  microValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  nutritionWarning: {
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: '#fff3cd',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffeaa7',
+  },
+  nutritionWarningText: {
+    fontSize: 13,
+    color: '#856404',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

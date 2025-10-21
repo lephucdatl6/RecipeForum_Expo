@@ -376,6 +376,98 @@ Do not explain your reasoning, just provide the warnings or "OK".`;
       return false;
     }
   }
+
+  /**
+   * Calculates nutritional information for a recipe using Gemini AI
+   * @param {Array} ingredients - Array of ingredients with name, amount, and unit
+   * @returns {Promise<{success: boolean, nutritionalInfo?: object, error?: string}>}
+   */
+  async calculateNutritionalInfo(ingredients) {
+    try {
+      if (!process.env.GEMINI_API_KEY) {
+        return { 
+          success: false, 
+          error: 'Gemini AI not configured' 
+        };
+      }
+
+      // Format ingredients for AI analysis
+      const ingredientsList = ingredients.map(ing => 
+        `${ing.amount} ${ing.unit} ${ing.name}`
+      ).join(', ');
+
+      const prompt = `You are a nutrition expert. Calculate the approximate nutritional information for a recipe with these ingredients: ${ingredientsList}
+
+Please provide ONLY a JSON response with the following structure (no additional text):
+{
+  "totalCalories": number,
+  "servings": number,
+  "caloriesPerServing": number,
+  "macronutrients": {
+    "carbohydrates": number,
+    "protein": number,
+    "fat": number
+  },
+  "micronutrients": {
+    "fiber": number,
+    "sugar": number,
+    "sodium": number,
+    "calcium": number,
+    "iron": number,
+    "vitaminC": number
+  }
+}
+
+Important:
+- Estimate realistic serving size (typically 1-4 servings for most recipes)
+- All values should be numbers in standard units (grams for nutrients, mg for vitamins/minerals)
+- Be conservative but realistic in your estimates
+- Consider cooking methods might affect some nutrients
+- If an ingredient amount is unclear, make reasonable assumptions`;
+
+      const result = await this.model.generateContent(prompt);
+      const response = result.response.text().trim();
+
+      // Clean the response to extract JSON
+      let jsonStr = response;
+      
+      if (jsonStr.includes('```json')) {
+        jsonStr = jsonStr.replace(/```json\s*/, '').replace(/```\s*$/, '');
+      } else if (jsonStr.includes('```')) {
+        jsonStr = jsonStr.replace(/```\s*/, '').replace(/```\s*$/, '');
+      }
+
+      try {
+        const nutritionalInfo = JSON.parse(jsonStr);
+        
+        // Validate the response structure
+        if (!nutritionalInfo.totalCalories || !nutritionalInfo.macronutrients) {
+          throw new Error('Invalid nutrition data structure');
+        }
+
+        return {
+          success: true,
+          nutritionalInfo
+        };
+
+      } catch (parseError) {
+        console.error('Failed to parse nutrition response:', parseError);
+        console.log('Raw response:', response);
+        
+        return {
+          success: false,
+          error: 'Failed to parse nutritional analysis'
+        };
+      }
+
+    } catch (error) {
+      console.error('Error calculating nutritional info:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to calculate nutritional information'
+      };
+    }
+  }
 }
 
 module.exports = new AIValidationService();

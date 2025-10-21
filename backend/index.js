@@ -10,6 +10,7 @@ const { generateApiConfig } = require('../scripts/generateApiConfig');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const aiValidationService = require('./aiValidationService');
+const nutritionService = require('./nutritionService');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -142,6 +143,72 @@ const recipeSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: null
+  },
+  nutritionalInfo: {
+    totalCalories: {
+      type: Number,
+      default: null
+    },
+    servings: {
+      type: Number,
+      default: null
+    },
+    caloriesPerServing: {
+      type: Number,
+      default: null
+    },
+    macronutrients: {
+      carbohydrates: {
+        type: Number,
+        default: null
+      },
+      protein: {
+        type: Number,
+        default: null
+      },
+      fat: {
+        type: Number,
+        default: null
+      }
+    },
+    micronutrients: {
+      fiber: {
+        type: Number,
+        default: null
+      },
+      sugar: {
+        type: Number,
+        default: null
+      },
+      sodium: {
+        type: Number,
+        default: null
+      },
+      calcium: {
+        type: Number,
+        default: null
+      },
+      iron: {
+        type: Number,
+        default: null
+      },
+      vitaminC: {
+        type: Number,
+        default: null
+      }
+    },
+    calculatedAt: {
+      type: Date,
+      default: null
+    },
+    ingredientsHash: {
+      type: String,
+      default: null // Hash of ingredients to detect changes
+    },
+    notes: {
+      type: String,
+      default: null // Warning message for database fallback calculations
+    }
   }
 });
 
@@ -2054,6 +2121,118 @@ app.get('/api/recipes/:id/vote-status/:userEmail', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to get vote status',
+      details: error.message 
+    });
+  }
+});
+
+// Utility function to generate hash of ingredients for cache validation
+const crypto = require('crypto');
+
+function generateIngredientsHash(ingredients) {
+  if (!ingredients || ingredients.length === 0) {
+    return null;
+  }
+  
+  // Create a consistent string representation of ingredients
+  const ingredientsString = ingredients
+    .map(ing => `${ing.ingredientId}-${ing.name}-${ing.amount}-${ing.unit}`)
+    .sort() 
+    .join('|');
+  
+  return crypto.createHash('md5').update(ingredientsString).digest('hex');
+}
+
+// Calculate nutritional information for a recipe
+app.post('/api/recipes/:id/nutrition', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { forceRecalculate = false } = req.body;
+
+    // Get recipe data
+    const recipe = await Recipe.findOne({ _id: id, isActive: 1 });
+    
+    if (!recipe) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Recipe not found or has been removed' 
+      });
+    }
+
+    if (!recipe.ingredients || recipe.ingredients.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Recipe has no ingredients to analyze'
+      });
+    }
+
+    // Generate current ingredients hash
+    const currentIngredientsHash = generateIngredientsHash(recipe.ingredients);
+
+    // Check if have cached nutrition data
+    const hasCachedNutrition = recipe.nutritionalInfo && 
+                              recipe.nutritionalInfo.totalCalories !== null &&
+                              recipe.nutritionalInfo.ingredientsHash === currentIngredientsHash;
+
+    // Check for existing warning notes in cached data
+    const hasWarningNotes = recipe.nutritionalInfo && recipe.nutritionalInfo.notes;
+    const shouldForceRecalculation = forceRecalculate || hasWarningNotes;
+
+    if (hasCachedNutrition && !shouldForceRecalculation) {
+      // Return cached data
+      return res.json({
+        success: true,
+        nutritionalInfo: {
+          totalCalories: recipe.nutritionalInfo.totalCalories,
+          servings: recipe.nutritionalInfo.servings,
+          caloriesPerServing: recipe.nutritionalInfo.caloriesPerServing,
+          macronutrients: recipe.nutritionalInfo.macronutrients,
+          micronutrients: recipe.nutritionalInfo.micronutrients,
+          notes: recipe.nutritionalInfo.notes
+        },
+        calculatedAt: recipe.nutritionalInfo.calculatedAt,
+        cached: true
+      });
+    }
+
+    // Calculate new nutrition data using nutrition service
+    const nutritionResult = await nutritionService.calculateNutritionalInfo(
+      recipe.ingredients, 
+      recipe.nutritionalInfo
+    );
+
+    if (!nutritionResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: nutritionResult.error || 'Failed to calculate nutritional information'
+      });
+    }
+
+    // Cache the nutrition data in the database
+    const calculatedAt = new Date();
+    recipe.nutritionalInfo = {
+      ...nutritionResult.nutritionalInfo,
+      calculatedAt: calculatedAt,
+      ingredientsHash: currentIngredientsHash
+    };
+
+    await recipe.save();
+
+    res.json({
+      success: true,
+      nutritionalInfo: nutritionResult.nutritionalInfo,
+      calculatedAt: calculatedAt.toISOString(),
+      cached: false,
+      warning: nutritionResult.warning,
+      databaseFallback: nutritionResult.databaseFallback,
+      unknownIngredients: nutritionResult.unknownIngredients
+    });
+
+  } catch (error) {
+    console.error('Error calculating nutrition:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to calculate nutritional information',
       details: error.message 
     });
   }
