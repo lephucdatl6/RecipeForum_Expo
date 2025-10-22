@@ -389,7 +389,7 @@ export default function BookmarkScreen() {
         <View style={styles.cardFooter}>
           <View style={styles.metaInfo}>
             <View style={styles.metaInfoItem}>
-              <Ionicons name="time-outline" size={14} color="#666" />
+              <Ionicons name="time-outline" size={14} color="#333333" style={{opacity: 0.7}} />
               <Text style={styles.metaText}>{item.cookingTime} min</Text>
             </View>
             {item.difficulty && (
@@ -401,7 +401,7 @@ export default function BookmarkScreen() {
               </View>
             )}
             <View style={styles.metaInfoItem}>
-              <Ionicons name="person-outline" size={14} color="#666" />
+              <Ionicons name="person-outline" size={14} color="#333333" style={{opacity: 0.7}} />
               <Text style={styles.metaText}>{item.author}</Text>
             </View>
           </View>
@@ -423,7 +423,8 @@ export default function BookmarkScreen() {
             <Ionicons 
               name="chevron-up" 
               size={16} 
-              color={item.userVote === 'upvote' ? 'white' : '#666'} 
+              color={item.userVote === 'upvote' ? 'white' : '#333333'} 
+              style={item.userVote !== 'upvote' ? {opacity: 0.7} : {}}
             />
           </TouchableOpacity>
           
@@ -443,13 +444,14 @@ export default function BookmarkScreen() {
             <Ionicons 
               name="chevron-down" 
               size={16} 
-              color={item.userVote === 'downvote' ? 'white' : '#666'} 
+              color={item.userVote === 'downvote' ? 'white' : '#333333'} 
+              style={item.userVote !== 'downvote' ? {opacity: 0.7} : {}}
             />
           </TouchableOpacity>
         </View>
 
         <View style={styles.commentSection}>
-          <Ionicons name="chatbubble-outline" size={16} color="#666" />
+          <Ionicons name="chatbubble-outline" size={16} color="#333333" style={{opacity: 0.7}} />
           <Text style={styles.commentCountText}>{item.commentCount || 0}</Text>
         </View>
 
@@ -483,7 +485,7 @@ export default function BookmarkScreen() {
         </View>
         <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
           <View style={styles.cartIconContainer}>
-            <Ionicons name="cart-outline" size={24} color="#666" />
+            <Ionicons name="cart-outline" size={24} color="#333333" style={{opacity: 0.7}} />
             {cartItemCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>
@@ -522,7 +524,7 @@ export default function BookmarkScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   header: {
     paddingTop: 60,
@@ -565,12 +567,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     textAlign: 'center',
     marginTop: 5,
   },
@@ -606,7 +609,7 @@ const styles = StyleSheet.create({
   recipeTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     flex: 1,
     marginRight: 10,
   },
@@ -623,7 +626,8 @@ const styles = StyleSheet.create({
   },
   recipeDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.8,
     lineHeight: 20,
     marginBottom: 15,
   },
@@ -656,12 +660,14 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginLeft: 4,
   },
   cookingTime: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginRight: 15,
     marginBottom: 5,
   },
@@ -673,12 +679,14 @@ const styles = StyleSheet.create({
   },
   author: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginBottom: 5,
   },
   postDate: {
     fontSize: 12,
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -697,7 +705,8 @@ const styles = StyleSheet.create({
   },
   statsText: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -711,13 +720,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginBottom: 10,
     textAlign: 'center',
   },
   emptyDescription: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -766,7 +776,8 @@ const styles = StyleSheet.create({
   },
   voteIcon: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     fontWeight: 'bold',
   },
   voteButtonActive: {
@@ -787,12 +798,12 @@ const styles = StyleSheet.create({
   netVotesText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   commentCountText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginLeft: 6,
   },
   bookmarkButton: {

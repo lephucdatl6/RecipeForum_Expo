@@ -623,7 +623,7 @@ export default function RecipesForumScreen() {
         <View style={styles.cardFooter}>
           <View style={styles.metaInfo}>
             <View style={styles.metaInfoItem}>
-              <Ionicons name="time-outline" size={14} color="#666" />
+              <Ionicons name="time-outline" size={14} color="#333333" style={{opacity: 0.7}} />
               <Text style={styles.metaText}>{item.cookingTime} min</Text>
             </View>
             {item.difficulty && (
@@ -635,7 +635,7 @@ export default function RecipesForumScreen() {
               </View>
             )}
             <View style={styles.metaInfoItem}>
-              <Ionicons name="person-outline" size={14} color="#666" />
+              <Ionicons name="person-outline" size={14} color="#333333" style={{opacity: 0.7}} />
               <Text style={styles.metaText}>{item.author}</Text>
             </View>
           </View>
@@ -660,7 +660,8 @@ export default function RecipesForumScreen() {
             <Ionicons 
               name="chevron-up" 
               size={16} 
-              color={item.userVote === 'upvote' ? 'white' : '#666'} 
+              color={item.userVote === 'upvote' ? 'white' : '#333333'} 
+              style={item.userVote !== 'upvote' ? {opacity: 0.7} : {}}
             />
           </TouchableOpacity>
           
@@ -680,14 +681,15 @@ export default function RecipesForumScreen() {
             <Ionicons 
               name="chevron-down" 
               size={16} 
-              color={item.userVote === 'downvote' ? 'white' : '#666'} 
+              color={item.userVote === 'downvote' ? 'white' : '#333333'} 
+              style={item.userVote !== 'downvote' ? {opacity: 0.7} : {}}
             />
           </TouchableOpacity>
         </View>
 
         {/* Comment Count Section */}
         <View style={styles.commentSection}>
-          <Ionicons name="chatbubble-outline" size={16} color="#666" />
+          <Ionicons name="chatbubble-outline" size={16} color="#333333" style={{opacity: 0.7}} />
           <Text style={styles.commentCountText}>{item.commentCount || 0}</Text>
         </View>
 
@@ -721,7 +723,7 @@ export default function RecipesForumScreen() {
     
     return (
       <View style={styles.emptyState}>
-        <Ionicons name="document-text-outline" size={48} color="#666" />
+        <Ionicons name="document-text-outline" size={48} color="#333333" style={{opacity: 0.7}} />
         <Text style={styles.emptyStateTitle}>No recipes yet</Text>
         <Text style={styles.emptyStateSubtitle}>Be the first to share your amazing recipe!</Text>
       </View>
@@ -739,7 +741,7 @@ export default function RecipesForumScreen() {
             placeholder="Search"
             value={searchQuery}
             onChangeText={handleSearch}
-            placeholderTextColor="#999"
+            placeholderTextColor="#888888"
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity 
@@ -839,7 +841,7 @@ export default function RecipesForumScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   header: {
     paddingTop: 60,
@@ -854,7 +856,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   searchContainer: {
     backgroundColor: '#ffffff',
@@ -873,7 +875,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 15,
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
     borderWidth: 1,
     borderColor: '#e0e0e0',
     marginRight: 10, 
@@ -923,11 +925,12 @@ const styles = StyleSheet.create({
   },
   resultsText: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
     fontStyle: 'italic',
+    opacity: 0.7,
   },
   listContainer: {
-    paddingBottom: 100, // Space for FAB
+    paddingBottom: 100,
   },
   recipeCard: {
     backgroundColor: 'white',
@@ -955,7 +958,7 @@ const styles = StyleSheet.create({
   recipeTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     flex: 1,
     marginRight: 10,
   },
@@ -972,7 +975,8 @@ const styles = StyleSheet.create({
   },
   recipeDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -992,12 +996,14 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginLeft: 4,
   },
   cookingTime: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginRight: 15,
   },
   difficulty: {
@@ -1007,11 +1013,13 @@ const styles = StyleSheet.create({
   },
   author: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   postDate: {
     fontSize: 12,
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
     fontStyle: 'italic',
   },
   emptyState: {
@@ -1023,12 +1031,13 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginBottom: 8,
   },
   emptyStateSubtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     textAlign: 'center',
   },
   fab: {
@@ -1104,7 +1113,7 @@ const styles = StyleSheet.create({
   netVotesText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   actionsContainer: {
     flexDirection: 'row',
@@ -1114,7 +1123,7 @@ const styles = StyleSheet.create({
   commentCountText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginLeft: 6,
   },
   sortContainer: {
@@ -1127,7 +1136,8 @@ const styles = StyleSheet.create({
   },
   sortLabel: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginBottom: 8,
     fontWeight: '500',
   },
@@ -1144,12 +1154,13 @@ const styles = StyleSheet.create({
   },
   sortButtonText: {
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
     fontWeight: '500',
   },
   sortArrow: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginLeft: 8,
   },
   sortDropdown: {
@@ -1179,7 +1190,7 @@ const styles = StyleSheet.create({
   },
   sortOptionText: {
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
   },
   sortOptionTextActive: {
     color: '#ff8c00',

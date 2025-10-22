@@ -314,7 +314,7 @@ export default function ShoppingCartScreen() {
                 style={styles.backButton}
                 onPress={() => router.back()}
               >
-                <Ionicons name="arrow-back" size={24} color="#007AFF" />
+                <Ionicons name="arrow-back" size={24} color="#ff8c00" />
               </TouchableOpacity>
               <Text style={styles.title}>Shopping Cart</Text>
             </View>
@@ -379,7 +379,7 @@ export default function ShoppingCartScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   scrollView: {
     flex: 1,
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   clearAllButton: {
     backgroundColor: '#ff4444',
@@ -446,13 +446,13 @@ const styles = StyleSheet.create({
   itemCount: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
     marginBottom: 5,
   },
   totalPrice: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#28a745',
+    color: '#ff8c00',
   },
   separator: {
     height: 1,
@@ -470,16 +470,17 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   itemPrice: {
     fontSize: 14,
-    color: '#28a745',
+    color: '#ff8c00',
     marginTop: 2,
   },
   itemDescription: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginTop: 2,
   },
   quantityControls: {
@@ -499,7 +500,8 @@ const styles = StyleSheet.create({
   },
   quantityButtonText: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     fontWeight: 'bold',
   },
   quantityDisplay: {
@@ -514,11 +516,12 @@ const styles = StyleSheet.create({
   quantityText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   unitText: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   removeButton: {
     backgroundColor: '#dc3545',
@@ -542,7 +545,7 @@ const styles = StyleSheet.create({
   itemTotalText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   checkoutSection: {
     marginTop: 20,
@@ -551,7 +554,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#e9ecef',
   },
   checkoutButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#ff8c00',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -578,12 +581,13 @@ const styles = StyleSheet.create({
   emptyCartTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginBottom: 10,
   },
   emptyCartSubtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     textAlign: 'center',
     marginBottom: 30,
   },
@@ -600,11 +604,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginBottom: 20,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#ff8c00',
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 8,

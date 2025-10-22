@@ -226,12 +226,12 @@ export default function ViewProfileScreen() {
       <View style={styles.postFooter}>
         <View style={styles.postMeta}>
           <View style={styles.metaItem}>
-            <Ionicons name="time-outline" size={14} color="#666" />
+            <Ionicons name="time-outline" size={14} color="#333333" style={{opacity: 0.7}} />
             <Text style={styles.metaText}>{item.cookingTime} min</Text>
           </View>
           {item.difficulty && (
             <View style={styles.metaItem}>
-              <Ionicons name="restaurant-outline" size={14} color="#666" />
+              <Ionicons name="restaurant-outline" size={14} color="#333333" style={{opacity: 0.7}} />
               <Text style={styles.metaText}>{item.difficulty}</Text>
             </View>
           )}
@@ -263,7 +263,7 @@ export default function ViewProfileScreen() {
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={handleBack}>
               <View style={styles.backButtonContent}>
-                <Ionicons name="chevron-back" size={20} color="#007AFF" />
+                <Ionicons name="chevron-back" size={20} color="#ff8c00" />
                 <Text style={styles.backButtonText}>Back</Text>
               </View>
             </TouchableOpacity>
@@ -271,7 +271,7 @@ export default function ViewProfileScreen() {
             <View style={styles.placeholder} />
           </View>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
+            <ActivityIndicator size="large" color="#ff8c00" />
             <Text style={styles.loadingText}>Loading profile...</Text>
           </View>
         </View>
@@ -287,7 +287,7 @@ export default function ViewProfileScreen() {
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={handleBack}>
               <View style={styles.backButtonContent}>
-                <Ionicons name="chevron-back" size={20} color="#007AFF" />
+                <Ionicons name="chevron-back" size={20} color="#ff8c00" />
                 <Text style={styles.backButtonText}>Back</Text>
               </View>
             </TouchableOpacity>
@@ -309,7 +309,7 @@ export default function ViewProfileScreen() {
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <View style={styles.backButtonContent}>
-              <Ionicons name="chevron-back" size={20} color="#007AFF" />
+              <Ionicons name="chevron-back" size={20} color="#ff8c00" />
               <Text style={styles.backButtonText}>Back</Text>
             </View>
           </TouchableOpacity>
@@ -369,7 +369,7 @@ export default function ViewProfileScreen() {
             
             {postsLoading ? (
               <View style={styles.postsLoading}>
-                <ActivityIndicator size="small" color="#007AFF" />
+                <ActivityIndicator size="small" color="#ff8c00" />
                 <Text style={styles.loadingText}>Loading posts...</Text>
               </View>
             ) : userPosts.length > 0 ? (
@@ -382,7 +382,7 @@ export default function ViewProfileScreen() {
               />
             ) : (
               <View style={styles.noPostsContainer}>
-                <Ionicons name="document-text-outline" size={48} color="#ccc" />
+                <Ionicons name="document-text-outline" size={48} color="#333333" style={{opacity: 0.3}} />
                 <Text style={styles.noPostsText}>
                   {isOwnProfile ? "You haven't posted any recipes yet" : `${userProfile.username} hasn't posted any recipes yet`}
                 </Text>
@@ -398,7 +398,7 @@ export default function ViewProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   header: {
     flexDirection: 'row',
@@ -422,13 +422,13 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#ff8c00',
     fontWeight: '600',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   placeholder: {
     width: 60,
@@ -441,7 +441,8 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   errorContainer: {
     flex: 1,
@@ -450,7 +451,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     textAlign: 'center',
   },
   contentContainer: {
@@ -478,7 +480,7 @@ const styles = StyleSheet.create({
     width: 130,
     height: 130,
     borderRadius:140,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#ff8c00',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
@@ -498,7 +500,7 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   profileInfo: {
     gap: 20,
@@ -513,12 +515,13 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     fontWeight: '500',
   },
   infoValue: {
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
     fontWeight: '600',
     textAlign: 'right',
     flex: 1,
@@ -531,7 +534,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginBottom: 15,
     paddingHorizontal: 20,
   },
@@ -566,7 +569,7 @@ const styles = StyleSheet.create({
   postTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     flex: 1,
     marginRight: 10,
   },
@@ -583,11 +586,13 @@ const styles = StyleSheet.create({
   },
   postDate: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   postDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.8,
     lineHeight: 20,
     marginBottom: 10,
   },
@@ -608,7 +613,8 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   postStats: {
     flexDirection: 'row',
@@ -622,7 +628,8 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   postImage: {
     width: '100%',
@@ -637,7 +644,8 @@ const styles = StyleSheet.create({
   },
   noPostsText: {
     fontSize: 16,
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
     textAlign: 'center',
     marginTop: 15,
     lineHeight: 22,

@@ -1213,14 +1213,14 @@ export default function PostDetailScreen() {
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <View style={styles.backButtonContent}>
-              <Ionicons name="chevron-back" size={20} color="#007AFF" />
+              <Ionicons name="chevron-back" size={20} color="#ff8c00" />
               <Text style={styles.backButtonText}>Back</Text>
             </View>
           </TouchableOpacity>
           <Text style={styles.title}>Post Details</Text>
           <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
             <View style={styles.cartIconContainer}>
-              <Ionicons name="cart-outline" size={24} color="#666" />
+              <Ionicons name="cart-outline" size={24} color="#333333" style={{opacity: 0.7}} />
               {cartItemCount > 0 && (
                 <View style={styles.cartBadge}>
                   <Text style={styles.cartBadgeText}>
@@ -1250,14 +1250,14 @@ export default function PostDetailScreen() {
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <View style={styles.backButtonContent}>
-              <Ionicons name="chevron-back" size={20} color="#007AFF" />
+              <Ionicons name="chevron-back" size={20} color="#ff8c00" />
               <Text style={styles.backButtonText}>Back</Text>
             </View>
           </TouchableOpacity>
           <Text style={styles.title}>Post Details</Text>
           <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
             <View style={styles.cartIconContainer}>
-              <Ionicons name="cart-outline" size={24} color="#666" />
+              <Ionicons name="cart-outline" size={24} color="#333333" style={{opacity: 0.7}} />
               {cartItemCount > 0 && (
                 <View style={styles.cartBadge}>
                   <Text style={styles.cartBadgeText}>
@@ -1292,7 +1292,7 @@ export default function PostDetailScreen() {
             <View style={styles.metaInfo}>
               <View style={styles.metaItem}>
                 <View style={styles.metaLabelContainer}>
-                  <Ionicons name="time-outline" size={16} color="#666" />
+                  <Ionicons name="time-outline" size={16} color="#333333" style={{opacity: 0.7}} />
                   <Text style={styles.metaLabel}>Cooking Time:</Text>
                 </View>
                 <Text style={styles.metaValue}>{recipe.cookingTime} minutes</Text>
@@ -1300,7 +1300,7 @@ export default function PostDetailScreen() {
               {recipe.difficulty && (
                 <View style={styles.metaItem}>
                   <View style={styles.metaLabelContainer}>
-                    <Ionicons name="restaurant-outline" size={16} color="#666" />
+                    <Ionicons name="restaurant-outline" size={16} color="#333333" style={{opacity: 0.7}} />
                     <Text style={styles.metaLabel}>Difficulty:</Text>
                   </View>
                   <Text style={[styles.metaValue, styles.difficultyValue, { color: getDifficultyColor(recipe.difficulty) }]}>
@@ -1310,7 +1310,7 @@ export default function PostDetailScreen() {
               )}
               <View style={styles.metaItem}>
                 <View style={styles.metaLabelContainer}>
-                  <Ionicons name="person-outline" size={16} color="#666" />
+                  <Ionicons name="person-outline" size={16} color="#333333" style={{opacity: 0.7}} />
                   <Text style={styles.metaLabel}>Author:</Text>
                 </View>
                 <View style={styles.authorContainer}>
@@ -1335,7 +1335,7 @@ export default function PostDetailScreen() {
               </View>
               <View style={styles.metaItem}>
                 <View style={styles.metaLabelContainer}>
-                  <Ionicons name="calendar-outline" size={16} color="#666" />
+                  <Ionicons name="calendar-outline" size={16} color="#333333" style={{opacity: 0.7}} />
                   <Text style={styles.metaLabel}>{getDateInfo(recipe).posted.label}</Text>
                 </View>
                 <Text style={styles.metaValue}>
@@ -1345,7 +1345,7 @@ export default function PostDetailScreen() {
               {getDateInfo(recipe).edited && (
                 <View style={styles.metaItem}>
                   <View style={styles.metaLabelContainer}>
-                    <Ionicons name="create-outline" size={16} color="#666" />
+                    <Ionicons name="create-outline" size={16} color="#333333" style={{opacity: 0.7}} />
                     <Text style={styles.metaLabel}>{getDateInfo(recipe).edited!.label}</Text>
                   </View>
                   <Text style={[styles.metaValue, styles.editedText]}>
@@ -1445,7 +1445,7 @@ export default function PostDetailScreen() {
                     <Ionicons 
                       name="refresh-outline" 
                       size={16} 
-                      color="#007AFF" 
+                      color="#ff8c00" 
                       style={styles.calculateButtonIcon}
                     />
                     <Text style={styles.recalculateButtonText}>
@@ -1586,7 +1586,7 @@ export default function PostDetailScreen() {
 
               {/* Comment Count */}
               <View style={styles.commentSection}>
-                <Ionicons name="chatbubble-outline" size={16} color="#666" />
+                <Ionicons name="chatbubble-outline" size={16} color="#333333" style={{opacity: 0.7}} />
                 <Text style={styles.commentCountText}>{commentStats.totalComments}</Text>
               </View>
 
@@ -1741,7 +1741,7 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   header: {
     flexDirection: 'row',
@@ -1765,13 +1765,13 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#ff8c00',
     fontWeight: '600',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   cartButton: {
     paddingVertical: 8,
@@ -1832,7 +1832,7 @@ const styles = StyleSheet.create({
   recipeTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     flex: 1,
   },
   moreOptionsButton: {
@@ -1843,7 +1843,7 @@ const styles = StyleSheet.create({
   },
   moreOptionsButtonText: {
     fontSize: 18,
-    color: '#333',
+    color: '#333333',
     fontWeight: 'bold',
   },
   modalOverlay: {
@@ -1912,7 +1912,8 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     fontWeight: '500',
     marginLeft: 6,
   },
@@ -1922,7 +1923,7 @@ const styles = StyleSheet.create({
   },
   metaValue: {
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
     fontWeight: '600',
   },
   authorName: {
@@ -1964,12 +1965,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginBottom: 10,
   },
   description: {
     fontSize: 16,
-    color: '#444',
+    color: '#333333',
+    opacity: 0.8,
     lineHeight: 24,
   },
 
@@ -2008,12 +2010,13 @@ const styles = StyleSheet.create({
   },
   ingredientUnit: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     fontWeight: '500',
   },
   ingredientName: {
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
     flex: 1,
   },
   addToCartButton: {
@@ -2043,7 +2046,8 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     fontStyle: 'italic',
   },
   errorContainer: {
@@ -2053,7 +2057,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   votingSection: {
     flexDirection: 'row',
@@ -2129,12 +2134,12 @@ const styles = StyleSheet.create({
   netVotesText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   commentCountText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginLeft: 6,
   },
   
@@ -2162,7 +2167,8 @@ const styles = StyleSheet.create({
   },
   noCommentsText: {
     fontSize: 16,
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
     fontStyle: 'italic',
     textAlign: 'center',
   },
@@ -2172,7 +2178,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   
   commentItem: {
@@ -2218,7 +2225,7 @@ const styles = StyleSheet.create({
   commentAuthorName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
     marginRight: 10,
   },
   clickableAuthorName: {
@@ -2226,11 +2233,13 @@ const styles = StyleSheet.create({
   },
   commentTime: {
     fontSize: 12,
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
   },
   commentContent: {
     fontSize: 15,
-    color: '#444',
+    color: '#333333',
+    opacity: 0.8,
     lineHeight: 20,
     marginBottom: 8,
   },
@@ -2241,7 +2250,7 @@ const styles = StyleSheet.create({
   },
   replyButtonText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: '#ff8c00',
     fontWeight: '500',
   },
   repliesContainer: {
@@ -2279,7 +2288,7 @@ const styles = StyleSheet.create({
   },
   replyIndicatorText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: '#ff8c00',
     fontWeight: '500',
   },
   cancelReplyButton: {
@@ -2287,7 +2296,8 @@ const styles = StyleSheet.create({
   },
   cancelReplyText: {
     fontSize: 16,
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
     fontWeight: 'bold',
   },
   commentInputRow: {
@@ -2322,12 +2332,13 @@ const styles = StyleSheet.create({
   },
   characterCount: {
     fontSize: 12,
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
     textAlign: 'right',
     marginTop: 4,
   },
   postButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#ff8c00',
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -2345,7 +2356,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   postButtonTextDisabled: {
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
   },
   imageSection: {
     marginBottom: 20,
@@ -2368,7 +2380,8 @@ const styles = StyleSheet.create({
   },
   imageStatusText: {
     fontSize: 14,
-    color: '#6c757d',
+    color: '#333333',
+    opacity: 0.7,
     fontStyle: 'italic',
   },
   bookmarkButton: {
@@ -2397,14 +2410,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#007AFF',
+    backgroundColor: '#ff8c00',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 25,
     marginTop: 10,
     alignSelf: 'center',
     minWidth: 160,
-    shadowColor: '#007AFF',
+    shadowColor: '#ff8c00',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2427,7 +2440,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   calculateButtonTextDisabled: {
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
   },
   recalculateButton: {
     flexDirection: 'row',
@@ -2440,10 +2454,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
     alignSelf: 'flex-end',
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: '#ff8c00',
   },
   recalculateButtonText: {
-    color: '#007AFF',
+    color: '#ff8c00',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -2467,19 +2481,21 @@ const styles = StyleSheet.create({
   },
   nutritionCardTitle: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginBottom: 4,
     fontWeight: '500',
   },
   nutritionCardValue: {
     fontSize: 18,
-    color: '#333',
+    color: '#333333',
     fontWeight: 'bold',
     marginBottom: 2,
   },
   nutritionCardUnit: {
     fontSize: 10,
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
   },
   macronutrients: {
     marginBottom: 20,
@@ -2487,7 +2503,7 @@ const styles = StyleSheet.create({
   nutritionSubtitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
     marginBottom: 10,
   },
   macroGrid: {
@@ -2506,13 +2522,14 @@ const styles = StyleSheet.create({
   },
   macroLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginBottom: 4,
     fontWeight: '500',
   },
   macroValue: {
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
     fontWeight: 'bold',
   },
   micronutrients: {
@@ -2535,13 +2552,14 @@ const styles = StyleSheet.create({
   },
   microLabel: {
     fontSize: 11,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginBottom: 3,
     fontWeight: '500',
   },
   microValue: {
     fontSize: 14,
-    color: '#333',
+    color: '#333333',
     fontWeight: 'bold',
   },
   nutritionWarning: {

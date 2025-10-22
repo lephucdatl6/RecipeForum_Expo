@@ -365,7 +365,10 @@ export default function CreatePostScreen() {
       >
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <Ionicons name="chevron-back" size={20} color="#ff8c00" />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.title}>Create Post</Text>
         <View style={styles.placeholder} />
@@ -384,7 +387,7 @@ export default function CreatePostScreen() {
           <TextInput
             style={styles.input}
             placeholder="Recipe Title *"
-            placeholderTextColor="#666"
+            placeholderTextColor="#888888"
             value={formData.title}
             onChangeText={(text) => setFormData({...formData, title: text})}
           />
@@ -401,7 +404,7 @@ export default function CreatePostScreen() {
               </View>
             ) : (
               <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                <Ionicons name="camera-outline" size={32} color="#666" />
+                <Ionicons name="camera-outline" size={32} color="#333333" style={{opacity: 0.7}} />
                 <Text style={styles.imagePickerText}>Add Photo</Text>
               </TouchableOpacity>
             )}
@@ -410,7 +413,7 @@ export default function CreatePostScreen() {
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Recipe Description *"
-            placeholderTextColor="#666"
+            placeholderTextColor="#888888"
             value={formData.description}
             onChangeText={(text) => setFormData({...formData, description: text})}
             multiline
@@ -421,7 +424,7 @@ export default function CreatePostScreen() {
             <TextInput
               style={[styles.input, styles.halfInput]}
               placeholder="Cooking Time (minutes) *"
-              placeholderTextColor="#666"
+              placeholderTextColor="#888888"
               value={formData.cookingTime}
               onChangeText={(text) => setFormData({...formData, cookingTime: text})}
               keyboardType="numeric"
@@ -430,7 +433,7 @@ export default function CreatePostScreen() {
             <TextInput
               style={[styles.input, styles.halfInput]}
               placeholder="Category *"
-              placeholderTextColor="#666"
+              placeholderTextColor="#888888"
               value={formData.category}
               onChangeText={(text) => setFormData({...formData, category: text})}
             />
@@ -501,7 +504,7 @@ export default function CreatePostScreen() {
                 <TextInput
                   style={styles.ingredientSearchInput}
                   placeholder="Search for ingredients..."
-                  placeholderTextColor="#666"
+                  placeholderTextColor="#888888"
                   value={ingredientSearch}
                   onChangeText={(text) => {
                     setIngredientSearch(text);
@@ -564,7 +567,7 @@ export default function CreatePostScreen() {
                         onPress={() => setShowUnitSelector(showUnitSelector === index ? null : index)}
                       >
                         <Text style={styles.unitSelectorText}>{ingredient.unit || 'Unit'}</Text>
-                        <Ionicons name="chevron-down" size={14} color="#666" />
+                        <Ionicons name="chevron-down" size={14} color="#333333" style={{opacity: 0.7}} />
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.removeIngredientButton}
@@ -628,7 +631,7 @@ export default function CreatePostScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   header: {
     flexDirection: 'row',
@@ -645,15 +648,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   backButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#ff8c00',
     fontWeight: '600',
+    marginLeft: 4,
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   placeholder: {
     width: 60, // Same width as back button for centering
@@ -681,7 +689,7 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -707,33 +715,34 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   authorInfo: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#f8f8f8',
     padding: 15,
     borderRadius: 8,
     marginTop: 5,
     borderLeftWidth: 4,
-    borderLeftColor: '#2196f3',
+    borderLeftColor: '#333333',
   },
   authorLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   authorText: {
     fontSize: 16,
-    color: '#2196f3',
+    color: '#333333',
     fontWeight: '600',
   },
   postButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#ff8c00',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 20,
   },
   postButtonDisabled: {
-    backgroundColor: '#A5D6A7',
+    backgroundColor: '#ffcc99',
     opacity: 0.6,
   },
   postButtonText: {
@@ -747,7 +756,7 @@ const styles = StyleSheet.create({
   difficultyLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
     marginBottom: 10,
   },
   difficultyRow: {
@@ -772,7 +781,8 @@ const styles = StyleSheet.create({
   difficultyButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   difficultyButtonTextSelected: {
     color: '#ff8c00',
@@ -783,7 +793,7 @@ const styles = StyleSheet.create({
   imageLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
     marginBottom: 10,
   },
   imagePicker: {
@@ -798,7 +808,8 @@ const styles = StyleSheet.create({
   },
   imagePickerText: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     fontWeight: '500',
   },
   imageContainer: {
@@ -828,11 +839,11 @@ const styles = StyleSheet.create({
   ingredientsLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
     marginBottom: 10,
   },
   addIngredientButton: {
-    backgroundColor: '#ff8c00',
+    backgroundColor: '#666666',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -889,11 +900,12 @@ const styles = StyleSheet.create({
   searchResultName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
   },
   searchResultDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginTop: 4,
   },
   selectedIngredientsContainer: {
@@ -906,7 +918,7 @@ const styles = StyleSheet.create({
   selectedIngredientsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
     marginBottom: 15,
   },
   ingredientItem: {
@@ -918,7 +930,7 @@ const styles = StyleSheet.create({
   ingredientName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
     marginBottom: 8,
   },
   ingredientControls: {
@@ -951,7 +963,7 @@ const styles = StyleSheet.create({
   },
   unitSelectorText: {
     fontSize: 14,
-    color: '#333',
+    color: '#333333',
   },
   unitSelectorArrow: {
     fontSize: 10,
@@ -976,7 +988,7 @@ const styles = StyleSheet.create({
   },
   unitOptionText: {
     fontSize: 14,
-    color: '#333',
+    color: '#333333',
   },
   unitOptionTextSelected: {
     color: 'white',

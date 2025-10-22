@@ -348,12 +348,12 @@ export default function UserProfileScreen() {
       <View style={styles.postFooter}>
         <View style={styles.postMeta}>
           <View style={styles.metaItem}>
-            <Ionicons name="time-outline" size={14} color="#666" />
+            <Ionicons name="time-outline" size={14} color="#333" style={{ opacity: 0.6 }} />
             <Text style={styles.metaText}>{item.cookingTime} min</Text>
           </View>
           {item.difficulty && (
             <View style={styles.metaItem}>
-              <Ionicons name="restaurant-outline" size={14} color="#666" />
+              <Ionicons name="restaurant-outline" size={14} color="#333" style={{ opacity: 0.6 }} />
               <Text style={styles.metaText}>{item.difficulty}</Text>
             </View>
           )}
@@ -361,11 +361,11 @@ export default function UserProfileScreen() {
         
         <View style={styles.postStats}>
           <View style={styles.statItem}>
-            <Ionicons name="chevron-up" size={14} color="#4CAF50" />
+            <Ionicons name="chevron-up" size={14} color="#ff8c00" />
             <Text style={styles.statText}>{item.upvotes || 0}</Text>
           </View>
           <View style={styles.statItem}>
-            <Ionicons name="chevron-down" size={14} color="#F44336" />
+            <Ionicons name="chevron-down" size={14} color="#ff8c00" style={{ opacity: 0.7 }} />
             <Text style={styles.statText}>{item.downvotes || 0}</Text>
           </View>
         </View>
@@ -538,7 +538,7 @@ export default function UserProfileScreen() {
             />
           ) : (
             <View style={styles.noPostsContainer}>
-              <Ionicons name="document-text-outline" size={48} color="#ccc" />
+              <Ionicons name="document-text-outline" size={48} color="rgba(51, 51, 51, 0.3)" />
               <Text style={styles.noPostsText}>
                 You haven't posted any recipes yet.
                 Start sharing your favorite recipes!
@@ -555,7 +555,7 @@ export default function UserProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   scrollView: {
     flex: 1,
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   editButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#ff8c00',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 5,
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   logoutButton: {
-    backgroundColor: '#ff4444',
+    backgroundColor: '#dc3545',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 5,
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
     width: 130,
     height: 130,
     borderRadius:140,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#ff8c00',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
   },
   uploadHint: {
     fontSize: 12,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.6)',
     textAlign: 'center',
   },
   userInfo: {
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: 'rgba(51, 51, 51, 0.1)',
     paddingBottom: 5,
   },
   infoRow: {
@@ -688,11 +688,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: 'rgba(51, 51, 51, 0.05)',
   },
   infoLabel: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
     fontWeight: '500',
     flex: 1,
   },
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   pointsValue: {
-    color: '#28a745',
+    color: '#ff8c00',
     fontSize: 18,
   },
   loadingContainer: {
@@ -714,10 +714,10 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
   },
   errorText: {
-    color: '#ff4444',
+    color: '#ff8c00',
     fontSize: 16,
     textAlign: 'center',
     marginTop: 50,
@@ -792,11 +792,11 @@ const styles = StyleSheet.create({
   },
   postDate: {
     fontSize: 12,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.6)',
   },
   postDescription: {
     fontSize: 14,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
     lineHeight: 20,
     marginBottom: 10,
   },
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.6)',
   },
   postStats: {
     flexDirection: 'row',
@@ -831,7 +831,7 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 12,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.6)',
   },
   postImage: {
     width: '100%',
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
   },
   noPostsText: {
     fontSize: 16,
-    color: '#999',
+    color: 'rgba(51, 51, 51, 0.5)',
     textAlign: 'center',
     marginTop: 15,
     lineHeight: 22,

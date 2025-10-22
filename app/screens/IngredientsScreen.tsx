@@ -2,15 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
@@ -217,7 +217,7 @@ export default function IngredientsScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="leaf-outline" size={64} color="#ccc" />
+      <Ionicons name="leaf-outline" size={64} color="#333333" style={{opacity: 0.3}} />
       <Text style={styles.emptyTitle}>
         {searchQuery ? 'No ingredients found' : 'No ingredients available'}
       </Text>
@@ -253,7 +253,7 @@ export default function IngredientsScreen() {
           <Text style={styles.headerTitle}>Ingredients</Text>
           <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
             <View style={styles.cartIconContainer}>
-              <Ionicons name="cart-outline" size={24} color="#666" />
+              <Ionicons name="cart-outline" size={24} color="#333333" style={{opacity: 0.7}} />
               {cartItemCount > 0 && (
                 <View style={styles.cartBadge}>
                   <Text style={styles.cartBadgeText}>
@@ -279,7 +279,7 @@ export default function IngredientsScreen() {
         <Text style={styles.headerTitle}>Ingredients</Text>
         <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
           <View style={styles.cartIconContainer}>
-            <Ionicons name="cart-outline" size={24} color="#666" />
+            <Ionicons name="cart-outline" size={24} color="#333333" style={{opacity: 0.7}} />
             {cartItemCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>
@@ -292,20 +292,20 @@ export default function IngredientsScreen() {
       </View>
 
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+        <Ionicons name="search" size={20} color="#333333" style={{opacity: 0.7, marginRight: 12}} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search ingredients..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor="#999"
+          placeholderTextColor="#888888"
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity
             style={styles.clearButton}
             onPress={() => setSearchQuery('')}
           >
-            <Ionicons name="close-circle" size={20} color="#666" />
+            <Ionicons name="close-circle" size={20} color="#333333" style={{opacity: 0.7}} />
           </TouchableOpacity>
         )}
       </View>
@@ -331,7 +331,7 @@ export default function IngredientsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   header: {
     backgroundColor: 'white',
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     flex: 1,
     textAlign: 'center',
   },
@@ -401,14 +401,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  searchIcon: {
-    marginRight: 12,
-  },
   searchInput: {
     flex: 1,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
   },
   clearButton: {
     padding: 4,
@@ -443,12 +440,13 @@ const styles = StyleSheet.create({
   ingredientName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginBottom: 4,
   },
   ingredientDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.8,
     marginBottom: 8,
     lineHeight: 20,
   },
@@ -459,7 +457,8 @@ const styles = StyleSheet.create({
   },
   packageSize: {
     fontSize: 14,
-    color: '#999',
+    color: '#333333',
+    opacity: 0.6,
     marginTop: 8,
   },
   price: {
@@ -497,13 +496,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     textAlign: 'center',
     marginBottom: 24,
     paddingHorizontal: 32,
@@ -526,7 +526,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
     marginTop: 16,
   },
 });

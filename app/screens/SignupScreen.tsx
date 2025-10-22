@@ -363,7 +363,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   container: {
     flex: 1,
@@ -381,13 +381,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#333333',
     textAlign: 'center',
+    opacity: 0.7,
   },
   formContainer: {
     backgroundColor: 'white',
@@ -408,7 +409,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
     marginBottom: 8,
   },
   input: {
@@ -417,7 +418,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
     backgroundColor: '#f8f8f8',
   },
   signupButton: {
@@ -462,7 +463,8 @@ const styles = StyleSheet.create({
   dividerText: {
     marginHorizontal: 16,
     fontSize: 14,
-    color: '#666',
+    color: '#333333',
+    opacity: 0.7,
   },
   loginButton: {
     borderWidth: 2,
@@ -490,9 +492,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   helperText: {
-    color: '#666',
+    color: '#333333',
     fontSize: 12,
     marginTop: 8,
     fontStyle: 'italic',
+    opacity: 0.6,
   },
 });

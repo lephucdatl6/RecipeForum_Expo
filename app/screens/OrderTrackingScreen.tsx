@@ -340,7 +340,7 @@ export default function OrderTrackingScreen() {
         </View>
         <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
           <View style={styles.cartIconContainer}>
-            <Ionicons name="cart-outline" size={24} color="#666" />
+            <Ionicons name="cart-outline" size={24} color="#333" />
             {cartItemCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>
@@ -379,7 +379,7 @@ export default function OrderTrackingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   header: {
     paddingTop: 60,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: 'rgba(51, 51, 51, 0.1)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -6,
     right: -8,
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#FF3b30',
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
     marginTop: 5,
   },
   listContainer: {
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
   orderDate: {
     fontSize: 14,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.6)',
     marginTop: 2,
   },
   statusBadge: {
@@ -501,18 +501,18 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 14,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
     flex: 1,
     marginLeft: 8,
   },
   customerName: {
     fontSize: 14,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
     marginBottom: 4,
   },
   paymentMethod: {
     fontSize: 14,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
     marginBottom: 8,
   },
   priceRow: {
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   },
   itemCount: {
     fontSize: 14,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
   },
   totalAmount: {
     fontSize: 18,
@@ -531,11 +531,11 @@ const styles = StyleSheet.create({
   },
   discount: {
     fontSize: 14,
-    color: '#4CAF50',
+    color: '#ff8c00',
     marginTop: 4,
   },
   cancelButton: {
-    backgroundColor: '#F44336',
+    backgroundColor: '#ff8c00',
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   },
   expandHint: {
     fontSize: 12,
-    color: '#999',
+    color: 'rgba(51, 51, 51, 0.5)',
     textAlign: 'center',
     fontStyle: 'italic',
   },
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     marginTop: 15,
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: 'rgba(51, 51, 51, 0.1)',
   },
   detailsTitle: {
     fontSize: 16,
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f8f8f8',
+    borderBottomColor: 'rgba(51, 51, 51, 0.05)',
   },
   itemInfo: {
     flex: 1,
@@ -583,13 +583,13 @@ const styles = StyleSheet.create({
   },
   itemPackage: {
     fontSize: 12,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.6)',
     marginTop: 2,
   },
   itemPrice: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
   },
   emptyDescription: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
     textAlign: 'center',
     lineHeight: 24,
   },

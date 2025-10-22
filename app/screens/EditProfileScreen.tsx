@@ -158,7 +158,7 @@ export default function EditProfileScreen() {
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={handleBack}>
               <View style={styles.backButtonContent}>
-                <Ionicons name="chevron-back" size={20} color="#007AFF" />
+                <Ionicons name="chevron-back" size={20} color="#ff8c00" />
                 <Text style={styles.backButtonText}>Back</Text>
               </View>
             </TouchableOpacity>
@@ -183,7 +183,7 @@ export default function EditProfileScreen() {
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <View style={styles.backButtonContent}>
-              <Ionicons name="chevron-back" size={20} color="#007AFF" />
+              <Ionicons name="chevron-back" size={20} color="#ff8c00" />
               <Text style={styles.backButtonText}>Back</Text>
             </View>
           </TouchableOpacity>
@@ -213,7 +213,7 @@ export default function EditProfileScreen() {
                   if (error) setError('');
                 }}
                 placeholder="Enter username"
-                placeholderTextColor="#aaa"
+                placeholderTextColor="rgba(51, 51, 51, 0.4)"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -229,7 +229,7 @@ export default function EditProfileScreen() {
                   if (error) setError('');
                 }}
                 placeholder="Enter email"
-                placeholderTextColor="#aaa"
+                placeholderTextColor="rgba(51, 51, 51, 0.4)"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -239,19 +239,19 @@ export default function EditProfileScreen() {
 
             <View style={styles.infoSection}>
               <View style={styles.infoItem}>
-                <Ionicons name="checkmark-circle" size={16} color="#28a745" style={styles.infoIcon} />
+                <Ionicons name="checkmark-circle" size={16} color="#ff8c00" style={styles.infoIcon} />
                 <Text style={styles.infoText}>
                   Username can be changed as many times as you want
                 </Text>
               </View>
               <View style={styles.infoItem}>
-                <Ionicons name="checkmark-circle" size={16} color="#28a745" style={styles.infoIcon} />
+                <Ionicons name="checkmark-circle" size={16} color="#ff8c00" style={styles.infoIcon} />
                 <Text style={styles.infoText}>
                   Email must be unique and will be used for login
                 </Text>
               </View>
               <View style={styles.infoItem}>
-                <Ionicons name="checkmark-circle" size={16} color="#28a745" style={styles.infoIcon} />
+                <Ionicons name="checkmark-circle" size={16} color="#ff8c00" style={styles.infoIcon} />
                 <Text style={styles.infoText}>
                   Your points and posts will remain unchanged
                 </Text>
@@ -267,7 +267,7 @@ export default function EditProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF8F0',
   },
   header: {
     flexDirection: 'row',
@@ -276,9 +276,9 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 15,
     paddingHorizontal: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFF8F0',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: 'rgba(51, 51, 51, 0.1)',
   },
   backButton: {
     paddingVertical: 8,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#ff8c00',
     fontWeight: '600',
     marginLeft: 2,
   },
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   saveButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: 'rgba(51, 51, 51, 0.3)',
   },
   saveButtonText: {
     color: 'white',
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
   },
   errorContainer: {
     flex: 1,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#ff4444',
+    color: '#ff8c00',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: 'rgba(51, 51, 51, 0.2)',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   infoSection: {
     marginTop: 20,
     padding: 15,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'rgba(255, 140, 0, 0.05)',
     borderRadius: 8,
     borderLeftWidth: 4,
     borderLeftColor: '#ff8c00',
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
-    color: '#666',
+    color: 'rgba(51, 51, 51, 0.7)',
     lineHeight: 20,
     flex: 1,
   },
