@@ -250,7 +250,10 @@ export default function IngredientsScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Ingredients</Text>
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>Ingredients</Text>
+            <Text style={styles.subtitle}>Browse and purchase ingredients</Text>
+          </View>
           <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
             <View style={styles.cartIconContainer}>
               <Ionicons name="cart-outline" size={24} color="#333333" style={{opacity: 0.7}} />
@@ -276,7 +279,10 @@ export default function IngredientsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Ingredients</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>Ingredients</Text>
+          <Text style={styles.subtitle}>Browse and purchase ingredients</Text>
+        </View>
         <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
           <View style={styles.cartIconContainer}>
             <Ionicons name="cart-outline" size={24} color="#333333" style={{opacity: 0.7}} />
@@ -333,32 +339,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFF8F0',
   },
-  header: {
-    backgroundColor: 'white',
+    header: {
     paddingTop: 60,
-    paddingBottom: 16,
     paddingHorizontal: 20,
+    paddingBottom: 20,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderBottomColor: 'rgba(51, 51, 51, 0.1)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333333',
-    flex: 1,
-    textAlign: 'center',
-  },
+    headerContent: {
+      flex: 1,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: '#333333',
+    },
+    subtitle: {
+      fontSize: 16,
+      color: 'rgba(51, 51, 51, 0.7)',
+      marginTop: 5,
+    },
   cartButton: {
     padding: 8,
   },

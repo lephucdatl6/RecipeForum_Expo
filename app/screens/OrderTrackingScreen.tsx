@@ -340,7 +340,7 @@ export default function OrderTrackingScreen() {
         </View>
         <TouchableOpacity style={styles.cartButton} onPress={handleCartNavigation}>
           <View style={styles.cartIconContainer}>
-            <Ionicons name="cart-outline" size={24} color="#333" />
+            <Ionicons name="cart-outline" size={24} color="#333333" style={{opacity: 0.7}} />
             {cartItemCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>

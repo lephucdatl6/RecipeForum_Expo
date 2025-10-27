@@ -539,6 +539,7 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     flex: 1,
+    alignItems: 'flex-start',
   },
   cartButton: {
     padding: 8,
