@@ -41,18 +41,46 @@ function generateApiConfig() {
 // Generated on: ${new Date().toLocaleString()}
 // Detected IP: ${ipAddress}
 
-export const API_BASE_URL = 'http://${ipAddress}:${port}';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Backup configurations
+// Set API_MODE to one of: 'AUTO_DETECTED', 'LOCALHOST', 'EMULATOR', 'MANUAL_OVERRIDE', or 'AUTO'
+export const API_MODE = 'AUTO';
+
 export const API_CONFIGS = {
   AUTO_DETECTED: 'http://${ipAddress}:${port}',
   LOCALHOST: 'http://localhost:${port}',
-  MANUAL_OVERRIDE: '', 
+  EMULATOR: 'http://10.0.2.2:${port}',
+  MANUAL_OVERRIDE: '',
 };
 
-export const getApiUrl = () => {
-  return API_CONFIGS.MANUAL_OVERRIDE || API_CONFIGS.AUTO_DETECTED;
-};
+let detectedApiUrl = API_CONFIGS.AUTO_DETECTED;
+
+if (API_MODE === 'AUTO') {
+  if (Platform.OS === 'android') {
+    const deviceName = Constants.deviceName || '';
+    if (deviceName.toLowerCase().includes('emulator') || !deviceName) {
+      detectedApiUrl = API_CONFIGS.EMULATOR;
+    } else {
+      detectedApiUrl = API_CONFIGS.AUTO_DETECTED;
+    }
+  } else if (Platform.OS === 'ios') {
+    const deviceName = Constants.deviceName || '';
+    if (deviceName.toLowerCase().includes('simulator')) {
+      detectedApiUrl = API_CONFIGS.LOCALHOST;
+    } else {
+      detectedApiUrl = API_CONFIGS.AUTO_DETECTED;
+    }
+  } else {
+    detectedApiUrl = API_CONFIGS.AUTO_DETECTED;
+  }
+}
+
+export const API_BASE_URL =
+  API_CONFIGS.MANUAL_OVERRIDE ||
+  (API_MODE === 'AUTO' ? detectedApiUrl : API_CONFIGS[API_MODE]) ||
+  API_CONFIGS.AUTO_DETECTED;
+
 `;
 
   const configDir = path.join(__dirname, '..', 'config');

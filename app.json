@@ -11,7 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": ["background-fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "background-fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -19,7 +22,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.lephucdatl6.RecipeForum_Expo"
     },
     "web": {
       "bundler": "metro",
@@ -42,13 +46,18 @@
         {
           "icon": "./assets/images/icon.png",
           "color": "#ff8c00",
-          "sounds": ["./assets/sounds/notification.wav"],
           "mode": "development"
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "76a7d000-eca2-4ddc-ae45-c26ba33dd66a"
+      }
     }
   }
 }
