@@ -151,7 +151,7 @@ class NutritionService {
    */
   async calculateNutritionalInfo(ingredients, existingNutritionInfo = null) {
     try {
-      console.log('Starting AI-first nutrition calculation for ingredients:', ingredients);
+      // console.log('Starting AI-first nutrition calculation for ingredients:', ingredients);
 
       // Check if we should force AI recalculation due to existing warning notes
       const hasWarningNotes = existingNutritionInfo && existingNutritionInfo.notes;

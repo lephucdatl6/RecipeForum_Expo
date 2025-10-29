@@ -1,11 +1,11 @@
 // Auto-generated API configuration
-// Generated on: 10/29/2025, 3:49:04 PM
+// Generated on: 10/29/2025, 4:11:12 PM
 // Detected IP: 192.168.100.194
 
 export const API_BASE_URL = 'https://hornish-anisha-unsoulish.ngrok-free.dev';
 
 // --- Legacy/local development logic ---
-// Uncomment below if use local IP for API.
+// Uncomment below if you want to use local IP for API.
 /*
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
