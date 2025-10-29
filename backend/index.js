@@ -3362,7 +3362,7 @@ app.get('/orders-manager', (req, res) => {
 console.log('Auto-generating API configuration...');
 generateApiConfig();
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT} and listening on 0.0.0.0`);
 });
 

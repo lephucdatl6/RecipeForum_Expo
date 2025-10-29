@@ -1,9 +1,9 @@
 // Auto-generated API configuration
-// Generated on: 10/29/2025, 2:15:38 PM
+// Generated on: 10/29/2025, 3:13:32 PM
 // Detected IP: 192.168.100.194
 
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 // Set API_MODE to one of: 'AUTO_DETECTED', 'LOCALHOST', 'EMULATOR', 'MANUAL_OVERRIDE', or 'AUTO'
 export const API_MODE = 'AUTO';

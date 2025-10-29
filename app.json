@@ -23,7 +23,10 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.lephucdatl6.RecipeForum_Expo"
+      "package": "com.lephucdatl6.RecipeForum_Expo",
+      "permissions": [
+        "android.permission.INTERNET"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -47,6 +50,14 @@
           "icon": "./assets/images/icon.png",
           "color": "#ff8c00",
           "mode": "development"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ],
