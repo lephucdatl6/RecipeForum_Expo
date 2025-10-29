@@ -178,6 +178,42 @@ class NotificationService {
     }
   }
 
+  // Mark existing orders for a user as "seen" by caching their current status.
+  async markExistingOrdersAsSeen(userId: string, apiBaseUrl: string) {
+    if (!userId) return;
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/orders/userid/${userId}`);
+      const data = await response.json();
+
+      if (data.success && Array.isArray(data.orders)) {
+        const sets: Array<[string, string]> = [];
+        for (const order of data.orders) {
+          const key = `order_${order.order_id}_status`;
+          const value = order.status || '';
+          sets.push([key, value]);
+        }
+
+        if (sets.length > 0) {
+          // AsyncStorage.multiSet expects [key, value][]
+          await AsyncStorage.multiSet(sets as [string, string][]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to mark existing orders as seen:', error);
+    }
+  }
+
+  // Mark a single order as seen (store its current status)
+  async markOrderAsSeen(orderId: number, status: string) {
+    try {
+      if (!orderId) return;
+      await AsyncStorage.setItem(`order_${orderId}_status`, status || '');
+    } catch (error) {
+      console.error('Failed to mark order as seen:', error);
+    }
+  }
+
   // Get notification history (for debugging)
   async getScheduledNotifications() {
     try {

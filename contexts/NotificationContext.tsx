@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -6,7 +7,7 @@ import { API_BASE_URL } from '../config/apiConfig';
 import notificationService from '../utils/notificationService';
 
 interface NotificationContextType {
-  startNotifications: (userId: string, userData?: any) => void;
+  startNotifications: (userId: string, userData?: any) => Promise<void>;
   stopNotifications: () => void;
   isActive: boolean;
 }
@@ -101,19 +102,51 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     };
   }, [currentUserId]);
 
-  const startNotifications = (userId: string, userData?: any) => {
+  const startNotifications = async (userId: string, userData?: any) => {
     // Prevent duplicate calls for the same user
     if (currentUserId === userId && isActive) {
       // console.log('Notifications already active for user:', userId);
       return;
     }
-    
+
     // console.log('Starting notifications for user:', userId);
     setCurrentUserId(userId);
     if (userData) {
       setCurrentUserData(userData);
     }
-    
+
+    // Mark existing orders as seen so the user won't get notifications for old orders
+    try {
+      const maybeFn = (notificationService as any)?.markExistingOrdersAsSeen;
+
+      if (typeof maybeFn === 'function') {
+        await maybeFn.call(notificationService, userId, API_BASE_URL);
+      } else {
+        // Tetch the user orders and cache their statuses in AsyncStorage
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/orders/userid/${userId}`);
+          const data = await response.json();
+
+          if (data.success && Array.isArray(data.orders) && data.orders.length > 0) {
+            const sets: Array<[string, string]> = [];
+            for (const order of data.orders) {
+              const key = `order_${order.order_id}_status`;
+              const value = order.status || '';
+              sets.push([key, value]);
+            }
+
+            if (sets.length > 0) {
+              await AsyncStorage.multiSet(sets as [string, string][]);
+            }
+          }
+        } catch (innerErr) {
+          console.error('Fallback failed to mark existing orders as seen:', innerErr);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to mark existing orders as seen:', error);
+    }
+
     // Only start polling if app is active
     if (AppState.currentState === 'active') {
       notificationService.startPolling(userId, API_BASE_URL);

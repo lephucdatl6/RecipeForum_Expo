@@ -1,5 +1,5 @@
 // Auto-generated API configuration
-// Generated on: 10/29/2025, 4:11:12 PM
+// Generated on: 10/29/2025, 6:10:09 PM
 // Detected IP: 192.168.100.194
 
 export const API_BASE_URL = 'https://hornish-anisha-unsoulish.ngrok-free.dev';
