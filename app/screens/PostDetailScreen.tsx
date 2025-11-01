@@ -639,7 +639,7 @@ export default function PostDetailScreen() {
     return (
       <View key={comment._id} style={[styles.commentItem, isReply && styles.replyItem]}>
         <View style={styles.commentHeader}>
-          <View style={styles.commentAuthorContainer}>
+            <View style={styles.commentAuthorContainer}>
             <View style={styles.commentAuthorAvatar}>
               {profileImage ? (
                 <Image 
@@ -648,7 +648,7 @@ export default function PostDetailScreen() {
                 />
               ) : (
                 <Text style={styles.commentAuthorInitials}>
-                  {comment.authorName.substring(0, 2).toUpperCase()}
+                  {comment.authorName.charAt(0).toUpperCase()}
                 </Text>
               )}
             </View>
@@ -1323,7 +1323,7 @@ export default function PostDetailScreen() {
                     ) : (
                       <View style={[styles.authorProfileImage, styles.authorInitials]}>
                         <Text style={styles.authorInitialsText}>
-                          {recipe.author.substring(0, 2).toUpperCase()}
+                          {recipe.author.charAt(0).toUpperCase()}
                         </Text>
                       </View>
                     )}
@@ -1943,13 +1943,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   authorInitials: {
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#ff8c00',
     justifyContent: 'center',
     alignItems: 'center',
   },
   authorInitialsText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 'bold',
   },
   editedText: {
