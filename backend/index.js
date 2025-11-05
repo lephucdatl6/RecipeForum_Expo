@@ -288,6 +288,11 @@ mongoose.connection.once('open', () => {
   ensureVotedUsersField();
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // Route to get all users
 app.get('/api/users', async (req, res) => {
   try {

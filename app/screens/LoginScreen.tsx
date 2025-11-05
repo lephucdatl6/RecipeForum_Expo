@@ -21,6 +21,16 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const ping = async () => {
+    try {
+      // Use the /health endpoint for a lightweight check
+      await axios.get(`${API_BASE_URL}/health`, { timeout: 5000 });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
   const handleLogin = async () => {
     setError('');
 
@@ -45,6 +55,14 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
+
+    const isServerReachable = await ping();
+    if (!isServerReachable) {
+      setError('Server is not reachable. Please ensure the backend and ngrok are running.');
+      setIsLoading(false);
+      return;
+    }
+
     console.log('Login attempt:', { email: email.trim(), API_URL });
     
     try {
