@@ -151,48 +151,32 @@ class NutritionService {
    */
   async calculateNutritionalInfo(ingredients, existingNutritionInfo = null) {
     try {
-      // console.log('Starting AI-first nutrition calculation for ingredients:', ingredients);
-
-      // Check if we should force AI recalculation due to existing warning notes
-      const hasWarningNotes = existingNutritionInfo && existingNutritionInfo.notes;
-      if (hasWarningNotes) {
-        console.log('Found existing warning notes, forcing AI recalculation:', existingNutritionInfo.notes);
-      }
-
-      // Try AI calculation first (always try if we have warning notes)
+      // If the AI service is available, attempt to use it first.
       if (process.env.GEMINI_API_KEY) {
         try {
           console.log('Attempting AI calculation...');
           const aiResult = await aiValidationService.calculateNutritionalInfo(ingredients);
           
+          // If AI calculation is successful, return its result.
           if (aiResult.success && aiResult.nutritionalInfo) {
-            console.log('AI calculation successful:', aiResult.nutritionalInfo);
-            // AI calculation succeeded, ensure no warning notes are included
+            console.log('AI calculation successful.');
+            // Ensure no old warning notes are carried over from a previous DB calculation.
             if (aiResult.nutritionalInfo.notes) {
               delete aiResult.nutritionalInfo.notes;
             }
             return aiResult;
-          } else {
-            console.log('AI calculation failed:', aiResult.error);
           }
+          // If AI fails, log it but proceed to database fallback.
+          console.log('AI calculation failed or returned no data. Proceeding to database fallback.');
         } catch (aiError) {
-          console.log('AI calculation error:', aiError.message);
+          // If AI throws an error, log it and proceed to database fallback.
+          console.log('AI calculation threw an error:', aiError.message, '. Proceeding to database fallback.');
         }
       } else {
-        console.log('No AI API key found, skipping AI calculation');
+        console.log('No AI API key found, skipping AI calculation.');
       }
 
-      // Only fallback to database if we don't have existing warning notes
-      // If we have warning notes, it means database already failed before
-      if (hasWarningNotes) {
-        console.log('AI failed and we already have database fallback notes, returning error');
-        return {
-          success: false,
-          error: 'AI calculation unavailable and database calculation already attempted'
-        };
-      }
-
-      // Fallback to database calculation
+      // Fallback to database calculation if AI is unavailable or failed.
       console.log('Falling back to database calculation...');
       return await this.calculateWithDatabase(ingredients);
 
