@@ -1,50 +1,109 @@
-# Welcome to your Expo app 👋
+# RecipeForum - Recipe Sharing Platform
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A mobile recipe sharing platform built with React Native and Expo, featuring AI-powered content validation, intelligent shopping cart with package calculations, and a hybrid SQL/NoSQL database architecture.
 
-## Get started
+## Features
 
-1. Install dependencies
+- **Recipe Management**: Create, edit, share, and discover recipes
+- **AI Content Validation**: Google Gemini AI for spam detection and unit validation
+- **Smart Shopping Cart**: Automatic package quantity calculations
+- **Nutritional Analysis**: AI-powered nutrition calculation with caching
+- **Voting System**: Upvote/downvote recipes with gamified points
+- **Order Tracking**: Full lifecycle from cart to delivery
+- **Image Uploads**: Cloudinary integration with asynchronous processing
+- **Cross-Database Architecture**: PostgreSQL + MongoDB hybrid system
 
+## Tech Stack
+
+**Frontend:**
+- React Native + Expo
+- TypeScript
+- React Navigation
+
+**Backend:**
+- Node.js + Express
+- PostgreSQL (users, orders, ingredients, shopping carts)
+- MongoDB (recipes with embedded data)
+- Google Gemini AI (content validation, nutrition)
+- Cloudinary (image hosting)
+- Nodemailer (email notifications)
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js installed
+- PostgreSQL database running
+- MongoDB database running
+- `.env` file configured in backend folder
+
+### Installation
+
+1. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Start the app
-
-   ```bash
-   npx expo start
+2. Configure environment variables in `backend/.env`:
+   ```
+   DATABASE_URL=your_postgresql_url
+   MONGODB_URI=your_mongodb_url
+   GEMINI_API_KEY=your_google_api_key
+   CLOUDINARY_CLOUD_NAME=your_cloudinary_name
+   CLOUDINARY_API_KEY=your_cloudinary_key
+   CLOUDINARY_API_SECRET=your_cloudinary_secret
+   EMAIL_USER=your_email
+   EMAIL_PASS=your_email_password
+   NGROK_URL=your_ngrok_url
    ```
 
-In the output, you'll find options to open the app in a
+### Running the Application
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+**Step 1: Start Backend Server**
 ```bash
-npm run reset-project
+npm run backend
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+**Step 2: Start Ngrok**
+```bash
+cd backend
+npx ngrok http 3001
+```
 
-## Learn more
+**Step 3: Start Expo App**
+```bash
+npx expo start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Then scan the QR code with Expo Go app on your mobile device.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Project Structure
 
-## Join the community
+```
+├── app/                    # Expo app screens and routing
+├── backend/                # Node.js backend server
+├── components/             # React components
+├── utils/                  # Utility functions (package calculation, image upload)
+├── contexts/               # React contexts (cart, notifications)
+├── config/                 # API configuration (auto-generated)
+└── admin/                  # Admin dashboard pages
+```
 
-Join our community of developers creating universal apps.
+## Key Innovations
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+1. **Hybrid Database**: PostgreSQL + MongoDB working together
+2. **AI Validation**: Smart spam detection and unit checking
+3. **Package Calculation**: Converts recipe amounts to shopping quantities
+4. **Async Image Upload**: Non-blocking with status tracking
+5. **Cross-Database Sync**: Vote counts update user points across databases
+6. **Auto Network Config**: Dynamic IP detection and config generation
+
+## Performance Testing
+
+See `PERFORMANCE_TESTING.md` for detailed testing instructions.
+
+## Admin Dashboard
+
+Access admin pages at:
+- `http://localhost:3001/ingredients-manager`
+- `http://localhost:3001/orders-manager`
