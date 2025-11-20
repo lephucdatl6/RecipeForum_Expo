@@ -89,6 +89,10 @@ Then scan the QR code with Expo Go app on your mobile device.
 └── admin/                  # Admin dashboard pages
 ```
 
+## APK Build
+
+An Android production APK built with Expo Application Services (EAS) is included in the `apk/` folder at the project root. This file can be installed directly on compatible Android devices.
+
 ## Key Innovations
 
 1. **Hybrid Database**: PostgreSQL + MongoDB working together
