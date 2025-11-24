@@ -1,6 +1,7 @@
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '..', 'backend', '.env') });
 
 /**
  * Get the first non-internal IPv4 address.
@@ -37,7 +38,7 @@ const getLocalIPAddress = () => {
 const generateApiConfig = () => {
   const ipAddress = getLocalIPAddress();
   const port = process.env.PORT || 3001;
-  const NGROK_URL = process.env.NGROK_URL || 'https://hornish-anisha-unsoulish.ngrok-free.dev';
+  const NGROK_URL = process.env.NGROK_URL;
 
   // Main config content
   const configContent = `// Auto-generated API configuration

@@ -1,8 +1,8 @@
 // Auto-generated API configuration
-// Generated on: 11/7/2025, 2:14:27 PM
-// Detected IP: 192.168.100.194
+// Generated on: [AUTO-GENERATED]
+// Detected IP: [AUTO-DETECTED]
 
-export const API_BASE_URL = 'https://hornish-anisha-unsoulish.ngrok-free.dev';
+export const API_BASE_URL = 'your_ngrok_url';
 
 // --- Legacy/local development logic ---
 // Uncomment below if you want to use local IP for API.
@@ -12,7 +12,7 @@ import Constants from 'expo-constants';
 
 export const API_MODE = 'AUTO';
 export const API_CONFIGS = {
-  AUTO_DETECTED: 'http://192.168.100.194:3001',
+  AUTO_DETECTED: 'http://[YOUR_LOCAL_IP]:3001',
   LOCALHOST: 'http://localhost:3001',
   EMULATOR: 'http://10.0.2.2:3001',
   MANUAL_OVERRIDE: ''

@@ -46,15 +46,26 @@ A mobile recipe sharing platform built with React Native and Expo, featuring AI-
 
 2. Configure environment variables in `backend/.env`:
    ```
-   DATABASE_URL=your_postgresql_url
-   MONGODB_URI=your_mongodb_url
-   GEMINI_API_KEY=your_google_api_key
-   CLOUDINARY_CLOUD_NAME=your_cloudinary_name
-   CLOUDINARY_API_KEY=your_cloudinary_key
-   CLOUDINARY_API_SECRET=your_cloudinary_secret
-   EMAIL_USER=your_email
-   EMAIL_PASS=your_email_password
-   NGROK_URL=your_ngrok_url
+DATABASE_URL=your_postgresql_url
+PORT=3001
+
+MONGODB_URI=your_mongodb_url
+
+# Email config
+EMAIL_USER=your_email
+EMAIL_PASS=your_email_password
+EMAIL_FROM=your_email
+
+# Cloudinary config
+CLOUDINARY_CLOUD_NAME=your_cloudinary_name
+CLOUDINARY_API_KEY=your_cloudinary_key
+CLOUDINARY_API_SECRET=your_cloudinary_secret
+
+# AI config
+GEMINI_API_KEY=your_google_api_key
+
+# Ngrok URL for API config
+NGROK_URL=your_ngrok_url
    ```
 
 ### Running the Application
