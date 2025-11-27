@@ -39,8 +39,15 @@ A mobile recipe sharing platform built with React Native and Expo, featuring AI-
 
 ### Installation
 
+
 1. Install dependencies:
    ```bash
+   npm install
+   ```
+
+   If you plan to run the backend separately, also install backend dependencies (including express) by running:
+   ```bash
+   cd backend
    npm install
    ```
 
@@ -69,6 +76,12 @@ A mobile recipe sharing platform built with React Native and Expo, featuring AI-
 **Step 1: Start Backend Server**
 ```bash
 npm run backend
+```
+
+*Or start manually:*
+```bash
+cd backend
+node index.js
 ```
 
 **Step 2: Start Ngrok**
