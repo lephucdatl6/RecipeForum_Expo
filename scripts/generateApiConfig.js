@@ -45,11 +45,11 @@ const generateApiConfig = () => {
 // Generated on: ${new Date().toLocaleString()}
 // Detected IP: ${ipAddress}
 
-export const API_BASE_URL = '${NGROK_URL}';
+// Uncomment below to use Ngrok for tunneling.
+// export const API_BASE_URL = '${NGROK_URL}';
 
-// --- Legacy/local development logic ---
-// Uncomment below if you want to use local IP for API.
-/*
+// --- Local development logic ---
+// Comment the block below if you prefer to use the Ngrok URL instead.
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
@@ -80,7 +80,6 @@ export const API_BASE_URL =
   API_CONFIGS.MANUAL_OVERRIDE ||
   (API_MODE === 'AUTO' ? detectedApiUrl : API_CONFIGS[API_MODE]) ||
   API_CONFIGS.AUTO_DETECTED;
-*/
 `;
 
   const configDir = path.resolve(__dirname, '..', 'config');

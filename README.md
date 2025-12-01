@@ -68,6 +68,7 @@ A mobile recipe sharing platform built with React Native and Expo, featuring AI-
 
    GEMINI_API_KEY=your_google_api_key
 
+   # Optional
    NGROK_URL=your_ngrok_url
    ```
 
@@ -84,11 +85,16 @@ cd backend
 node index.js
 ```
 
-**Step 2: Start Ngrok**
+**Step 2 (Optional): Expose Backend with Ngrok**
+
 ```bash
 cd backend
 npx ngrok http 3001
 ```
+
+When Ngrok assigns a public URL:
+- Add that URL to `NGROK_URL` inside `backend/.env`.
+- In `scripts/generateApiConfig.js`, uncomment `export const API_BASE_URL = '${NGROK_URL}';` and comment out the local auto-detection block so the app uses the tunnel.
 
 **Step 3: Start Expo App**
 ```bash

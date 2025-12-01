@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../../components/BottomNavigation';
 import { API_BASE_URL } from '../../config/apiConfig';
@@ -35,6 +35,11 @@ interface Recipe {
   userVote?: 'upvote' | 'downvote' | null;
 }
 
+const buildRecipeIdsKey = (recipes: Recipe[]) => {
+  if (!recipes || recipes.length === 0) return '';
+  return recipes.map(recipe => recipe._id).sort().join('|');
+};
+
 export default function BookmarkScreen() {
   const params = useLocalSearchParams();
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -42,6 +47,37 @@ export default function BookmarkScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { cartItemCount, loadCartItemCount } = useCart();
+  const recipeIdsKey = useMemo(() => buildRecipeIdsKey(bookmarkedRecipes), [bookmarkedRecipes]);
+  const votesFetchedFor = useRef<string | null>(null);
+  const fetchUserVotesForRecipes = useCallback(async (recipesList: Recipe[]) => {
+    if (!userData?.email || recipesList.length === 0) return recipesList;
+
+    try {
+      const votePromises = recipesList.map(async (recipe) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe._id}/vote-status/${userData.email}`);
+          const data = await response.json();
+
+          if (data.success) {
+            return {
+              ...recipe,
+              userVote: data.userVote,
+              upvotes: data.upvotes,
+              downvotes: data.downvotes
+            };
+          }
+        } catch (error) {
+          console.error('Error loading vote status for recipe:', recipe._id, error);
+        }
+        return recipe;
+      });
+
+      return await Promise.all(votePromises);
+    } catch (error) {
+      console.error('Error loading user votes:', error);
+      return recipesList;
+    }
+  }, [userData?.email]);
 
   // Order notifications
   useOrderNotifications({ userId: userData?.user_id, enabled: true, userData });
@@ -92,10 +128,12 @@ export default function BookmarkScreen() {
   );
 
   useEffect(() => {
-    if (userData && bookmarkedRecipes.length > 0) {
-      loadUserVotes();
-    }
-  }, [userData?.email, bookmarkedRecipes.length]);
+    if (!userData?.email || bookmarkedRecipes.length === 0) return;
+    if (votesFetchedFor.current === recipeIdsKey) return;
+
+    votesFetchedFor.current = recipeIdsKey;
+    loadUserVotes();
+  }, [userData?.email, recipeIdsKey]);
 
   const loadBookmarks = async () => {
     if (!userData?.user_id) return;
@@ -132,7 +170,10 @@ export default function BookmarkScreen() {
           console.error('Error loading comment counts:', error);
         }
         
-        setBookmarkedRecipes(recipesWithIds);
+        const recipesWithVotes = await fetchUserVotesForRecipes(recipesWithIds);
+        const nextKey = buildRecipeIdsKey(recipesWithVotes);
+        votesFetchedFor.current = nextKey;
+        setBookmarkedRecipes(recipesWithVotes);
       } else {
         console.error('Failed to load bookmarks:', data.error);
         Alert.alert('Error', 'Failed to load bookmarked recipes');
@@ -256,32 +297,10 @@ export default function BookmarkScreen() {
   const loadUserVotes = async () => {
     if (!userData || bookmarkedRecipes.length === 0) return;
 
-    try {
-      // Load vote status for all bookmarked recipes
-      const votePromises = bookmarkedRecipes.map(async (recipe) => {
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/recipes/${recipe._id}/vote-status/${userData.email}`);
-          const data = await response.json();
-          
-          if (data.success) {
-            return {
-              ...recipe,
-              userVote: data.userVote,
-              upvotes: data.upvotes,
-              downvotes: data.downvotes
-            };
-          }
-        } catch (error) {
-          console.error('Error loading vote status for recipe:', recipe._id, error);
-        }
-        return recipe;
-      });
-
-      const recipesWithVotes = await Promise.all(votePromises);
-      setBookmarkedRecipes(recipesWithVotes);
-    } catch (error) {
-      console.error('Error loading user votes:', error);
-    }
+    const recipesWithVotes = await fetchUserVotesForRecipes(bookmarkedRecipes);
+    const nextKey = buildRecipeIdsKey(recipesWithVotes);
+    votesFetchedFor.current = nextKey;
+    setBookmarkedRecipes(recipesWithVotes);
   };
 
   const handleRecipePress = (recipe: Recipe) => {
