@@ -110,7 +110,7 @@ Then scan the QR code with Expo Go app on your mobile device.
 ├── backend/                # Node.js backend server
 ├── components/             # React components
 ├── utils/                  # Utility functions (package calculation, image upload)
-├── contexts/               # React contexts (cart, notifications)
+├── contexts/               # React contexts
 ├── config/                 # API configuration (auto-generated)
 └── admin/                  # Admin dashboard pages
 ```
@@ -126,7 +126,6 @@ An Android production APK built with Expo Application Services (EAS) is included
 3. **Package Calculation**: Converts recipe amounts to shopping quantities
 4. **Async Image Upload**: Non-blocking with status tracking
 5. **Cross-Database Sync**: Vote counts update user points across databases
-6. **Auto Network Config**: Dynamic IP detection and config generation
 
 ## Performance Testing
 
