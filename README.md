@@ -1,5 +1,9 @@
 # RecipeForum - Recipe Sharing Platform
 
+**Compatibility Notice**  
+This project is **stable and functional on Android (emulator & physical devices)** using **Expo SDK 53**.  
+It has **not been tested or updated for newer Expo SDK versions**.
+
 A mobile recipe sharing platform built with React Native and Expo, featuring AI-powered content validation, intelligent shopping cart with package calculations, and a hybrid SQL/NoSQL database architecture.
 
 ## Features
